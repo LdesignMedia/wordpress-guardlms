@@ -86,6 +86,7 @@ class GuardLMS_Rest {
 
 		$result = GuardLMS_Connect_Manager::complete_connect( $code, $state );
 
+		$notice = null;
 		if ( is_wp_error( $result ) ) {
 			$flag = 'error';
 			// The route is public, so only surface an error notice for a request
@@ -93,25 +94,21 @@ class GuardLMS_Rest {
 			// with missing/blank params must not write a transient or plant a notice
 			// that a legitimate admin would then see on the Connect page.
 			if ( '' !== $code && '' !== $state ) {
-				set_transient(
-					GuardLMS_Connect_Page::NOTICE_TRANSIENT,
-					array(
-						'type'    => 'error',
-						'message' => $result->get_error_message(),
-					),
-					MINUTE_IN_SECONDS
+				$notice = array(
+					'type'    => 'error',
+					'message' => $result->get_error_message(),
 				);
 			}
 		} else {
-			$flag = 'success';
-			set_transient(
-				GuardLMS_Connect_Page::NOTICE_TRANSIENT,
-				array(
-					'type'    => 'success',
-					'message' => __( 'Connected to GuardLMS successfully.', 'guardlms' ),
-				),
-				MINUTE_IN_SECONDS
+			$flag   = 'success';
+			$notice = array(
+				'type'    => 'success',
+				'message' => __( 'Connected to GuardLMS successfully.', 'guardlms' ),
 			);
+		}
+
+		if ( null !== $notice ) {
+			set_transient( GuardLMS_Connect_Page::NOTICE_TRANSIENT, $notice, MINUTE_IN_SECONDS );
 		}
 
 		wp_safe_redirect(
