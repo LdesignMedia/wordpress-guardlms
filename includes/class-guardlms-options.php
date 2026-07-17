@@ -75,14 +75,14 @@ class GuardLMS_Options {
 	/**
 	 * Fetch a single setting.
 	 *
-	 * @param string $key     Setting key.
-	 * @param mixed  $default Value returned when the key is absent.
+	 * @param string $key      Setting key.
+	 * @param mixed  $fallback Value returned when the key is absent.
 	 * @return mixed
 	 */
-	public static function get( string $key, $default = null ) {
+	public static function get( string $key, $fallback = null ) {
 		$all = self::all();
 
-		return array_key_exists( $key, $all ) ? $all[ $key ] : $default;
+		return array_key_exists( $key, $all ) ? $all[ $key ] : $fallback;
 	}
 
 	/**

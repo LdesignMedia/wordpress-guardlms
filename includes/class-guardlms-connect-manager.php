@@ -138,7 +138,7 @@ class GuardLMS_Connect_Manager {
 
 		$updates = array(
 			'websiteid'         => isset( $data['website_id'] ) ? (int) $data['website_id'] : 0,
-			'keyexpiresat'      => isset( $data['expires_at'] ) ? (int) ( strtotime( (string) $data['expires_at'] ) ?: 0 ) : 0,
+			'keyexpiresat'      => isset( $data['expires_at'] ) ? (int) strtotime( (string) $data['expires_at'] ) : 0,
 			'connectedat'       => time(),
 			'connected_siteurl' => $siteurl,
 			// A first-time connect enables reporting; a reconnect (key refresh)
