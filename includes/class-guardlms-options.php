@@ -2,7 +2,10 @@
 /**
  * GuardLMS settings accessor (autoloaded, non-secret option).
  *
- * @package GuardLMS
+ * @package    GuardLMS
+ * @copyright  2026 Luuk Verhoeven, ldesignmedia.nl <info@ldesignmedia.nl>
+ * @author     Hamza Tamyachte
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  *
  * GuardLMS is free software: you can redistribute it and/or modify it under the
  * terms of the GNU General Public License as published by the Free Software
