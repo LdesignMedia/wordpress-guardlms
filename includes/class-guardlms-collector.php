@@ -197,10 +197,12 @@ class GuardLMS_Collector {
 				: null;
 		}
 
+		$hostname = gethostname();
+
 		return array(
 			'os_family' => PHP_OS_FAMILY,
 			'os'        => PHP_OS,
-			'hostname'  => gethostname() ?: null,
+			'hostname'  => false !== $hostname ? $hostname : null,
 			'webserver' => $webserver,
 		);
 	}
@@ -214,10 +216,12 @@ class GuardLMS_Collector {
 		$extensions = get_loaded_extensions();
 		sort( $extensions );
 
+		$ini = php_ini_loaded_file();
+
 		return array(
 			'version'             => PHP_VERSION,
 			'sapi'                => php_sapi_name(),
-			'ini'                 => php_ini_loaded_file() ?: 'none',
+			'ini'                 => false !== $ini ? $ini : 'none',
 			'memory_limit'        => ini_get( 'memory_limit' ),
 			'max_execution_time'  => ini_get( 'max_execution_time' ),
 			'upload_max_filesize' => ini_get( 'upload_max_filesize' ),

@@ -37,16 +37,22 @@ class GuardLMS_Options {
 	 */
 	public static function defaults() {
 		return array(
-			'enabled'           => true,
-			'baseurl'           => GUARDLMS_DEFAULT_BASEURL,
-			'pushpath'          => GUARDLMS_DEFAULT_PUSHPATH,
-			'sendconfig'        => false,
-			'verificationtoken' => '',
-			'connected_siteurl' => '',
-			'lastpush'          => 0,
-			'lastpushstatus'    => 0,
-			'keyexpiresat'      => 0,
-			'last_plugincount'  => 0,
+			'enabled'              => true,
+			'baseurl'              => GUARDLMS_DEFAULT_BASEURL,
+			'pushpath'             => GUARDLMS_DEFAULT_PUSHPATH,
+			'sendconfig'           => false,
+			'verificationtoken'    => '',
+			'connected_siteurl'    => '',
+			'lastpush'             => 0,
+			'lastpushstatus'       => 0,
+			'keyexpiresat'         => 0,
+			'last_plugincount'     => 0,
+			// Phase 2 keyless Connect flow.
+			'connectstate'         => '',
+			'connectstateexpires'  => 0,
+			'connectstate_baseurl' => '',
+			'websiteid'            => 0,
+			'connectedat'          => 0,
 		);
 	}
 
@@ -69,14 +75,14 @@ class GuardLMS_Options {
 	/**
 	 * Fetch a single setting.
 	 *
-	 * @param string $key     Setting key.
-	 * @param mixed  $default Value returned when the key is absent.
+	 * @param string $key      Setting key.
+	 * @param mixed  $fallback Value returned when the key is absent.
 	 * @return mixed
 	 */
-	public static function get( string $key, $default = null ) {
+	public static function get( string $key, $fallback = null ) {
 		$all = self::all();
 
-		return array_key_exists( $key, $all ) ? $all[ $key ] : $default;
+		return array_key_exists( $key, $all ) ? $all[ $key ] : $fallback;
 	}
 
 	/**
