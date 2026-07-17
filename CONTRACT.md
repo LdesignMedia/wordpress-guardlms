@@ -143,3 +143,84 @@ wp_clear_scheduled_hook('guardlms_daily_push') and ('guardlms_initial_push').
 - phpunit.xml.dist + tests/bootstrap.php (Brain Monkey setup or WP test lib).
 - Min versions: Requires at least WP 6.0, Requires PHP 7.4, Tested up to 6.7.
 ```
+
+## Phase 2 — keyless Connect / OAuth (branch feat/phase2-connect)
+
+Adds a one-click, keyless Connect flow (OAuth authorization-code + `state`) so an admin never
+copies an API key. The Phase 1 manual API-key path in GuardLMS_Settings stays fully intact; Connect
+simply populates the same options/credentials programmatically.
+
+### Flow (summary)
+1. Admin clicks Connect on the Connect page (nonce + manage_options admin-post `guardlms_connect_start`).
+2. `GuardLMS_Connect_Manager::start_connect()` mints `state` = bin2hex(random_bytes(20)) (40 hex),
+   stores state + 900s expiry + the CURRENT baseurl BOUND to the attempt, and redirects the browser
+   (wp_redirect — external host) to `{baseurl}/connect/wordpress?siteurl=&state=&callback=`
+   where `callback` = `rest_url('guardlms/v1/connect-callback')` (rawurlencoded; add_query_arg does
+   not encode values).
+3. Backend consent screen mints a one-time `code` and redirects the browser back to the callback URL
+   with `code`+`state` appended (query-aware `?`/`&` separator).
+4. Public REST route `GuardLMS_Rest::handle_callback()` reads code+state and calls
+   `GuardLMS_Connect_Manager::complete_connect()`, then wp_safe_redirect()s to the Connect page with a
+   success/error notice (via a short transient). It never emits JSON to the browser.
+5. `complete_connect()` validates state (single-use / TTL / hash_equals), then
+   `GuardLMS_Api_Client::exchange()` POSTs `{code,siteurl,state}` to `{bound baseurl}/api/integrations/exchange`.
+6. On a 2xx `{ "data": { token, pushpath?, verification_token?, website_id, expires_at } }` response it
+   stores token -> Credentials, and pushpath/verificationtoken/websiteid/keyexpiresat/connectedat/
+   connected_siteurl/enabled -> Options; queues an immediate push (GUARDLMS_INITIAL_HOOK, +5s); purges caches.
+7. Backend later fetches the homepage `<meta name="guardlms-verification">` (Phase 1 head-injector already
+   renders it once verificationtoken + enabled are set) and/or DNS-TXT to auto-confirm ownership.
+
+### Auth model (why the callback is public)
+`permission_callback => __return_true`. A top-level browser redirect cannot carry the `X-WP-Nonce`
+that WP REST cookie auth needs, so a capability check is not implementable on the callback. The
+security control is the single-use `state`: created only inside `start_connect()` (which IS gated by
+manage_options + a nonce), stored server-side, 900s TTL, hash_equals compared, and CONSUMED (cleared)
+before the exchange. The baseurl is BOUND into the state record so a later settings edit cannot
+redirect the exchange to another host. The push key is never logged.
+
+### New option keys (added to `guardlms_settings` defaults)
+- `connectstate` (string, default '')          — pending state (40 hex), cleared on use
+- `connectstateexpires` (int ts, default 0)     — state expiry (time()+900)
+- `connectstate_baseurl` (string, default '')   — baseurl BOUND to the attempt
+- `websiteid` (int, default 0)                  — GuardLMS website id from the exchange
+- `connectedat` (int ts, default 0)             — when the Connect flow last succeeded (>0 == connected)
+
+### REST route
+- namespace `guardlms/v1`, route `/connect-callback`, method GET, `permission_callback => __return_true`.
+- pretty permalinks -> `/wp-json/guardlms/v1/connect-callback`; plain -> `/?rest_route=/guardlms/v1/connect-callback`.
+
+### New classes / signatures
+```
+GuardLMS_Api_Client        (includes/class-guardlms-api-client.php)
+  const EXCHANGE_PATH = '/api/integrations/exchange';
+  public static function exchange( string $code, string $siteurl, string $state, string $baseurl ): array|WP_Error
+    // POST {code,siteurl,state} via GuardLMS_Http::post to rtrim(baseurl,'/').EXCHANGE_PATH;
+    // 2xx + json_decode + require data.token, else WP_Error. Returns the inner `data` array.
+
+GuardLMS_Connect_Manager   (includes/class-guardlms-connect-manager.php)
+  const STATE_TTL = 900;
+  public static function start_connect(): string           // mint+store state/expiry/bound baseurl; return consent URL
+  public static function complete_connect( string $code, string $state ): true|WP_Error
+        // ALWAYS clears connectstate/expires first (single use); '' || !hash_equals || expired -> WP_Error('guardlms_connectstate');
+        // exchange(bound baseurl); on success store creds+options, queue initial push (+5s), purge_caches().
+  public static function is_connected(): bool               // has_key() && connectedat>0
+  public static function disconnect(): void                 // Credentials::delete(); clear connectedat/websiteid/verificationtoken/keyexpiresat/connected_siteurl
+  public static function purge_caches(): void               // w3tc_flush_all / litespeed_purge_all / rocket_clean_domain / wp_cache_clear_cache (function_exists guarded)
+
+GuardLMS_Rest              (includes/class-guardlms-rest.php)
+  const REST_NAMESPACE = 'guardlms/v1'; const CALLBACK_ROUTE = '/connect-callback';
+  public static function register(): void                  // rest_api_init: register connect-callback (GET, __return_true)
+  public static function handle_callback( $request ): void // sanitize code(alnum<=64)+state(alnum,40); complete_connect(); set notice transient; wp_safe_redirect to Connect page; exit
+
+GuardLMS_Connect_Page     (includes/admin/class-guardlms-connect-page.php)
+  const PAGE = 'guardlms-connect'; const START_ACTION='guardlms_connect_start'; const DISCONNECT_ACTION='guardlms_disconnect'; const NOTICE_TRANSIENT='guardlms_connect_notice';
+  public static function register(): void                  // add_submenu_page under Settings (manage_options)
+  public static function render_page(): void               // manage_options gate; status (is_connected, websiteid, connectedat, keyexpiresat, lastpush) + Connect/Reconnect + Disconnect nonce forms
+  public static function handle_start(): void              // check_admin_referer(START_ACTION)+manage_options; wp_redirect(start_connect()) [external]; exit
+  public static function handle_disconnect(): void         // check_admin_referer(DISCONNECT_ACTION)+manage_options; disconnect(); wp_safe_redirect back; exit
+```
+
+### Hooks added in GuardLMS_Plugin::boot()
+`rest_api_init` -> GuardLMS_Rest::register; `admin_menu` -> GuardLMS_Connect_Page::register;
+`admin_post_guardlms_connect_start` -> handle_start; `admin_post_guardlms_disconnect` -> handle_disconnect.
+The 4 new files are require_once'd in GuardLMS_Plugin::load(). Head-injector: NO change.
