@@ -1,0 +1,137 @@
+# Copyright (C) 2026 ldesignmedia
+# This file is distributed under the GPLv3.
+msgid ""
+msgstr ""
+"Project-Id-Version: GuardLMS 0.1.0\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/guardlms\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-07-17T00:00:00+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: manual\n"
+"X-Domain: guardlms\n"
+
+#. Plugin Name of the plugin
+#: guardlms.php
+#: includes/admin/class-guardlms-settings.php
+msgid "GuardLMS"
+msgstr ""
+
+#. Description of the plugin
+#: guardlms.php
+msgid "Reports your WordPress core version, plugin/theme inventory, and server/PHP environment to GuardLMS daily for CVE monitoring."
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php
+msgid "GuardLMS Settings"
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php
+msgid "Enable daily push"
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php
+msgid "Send the daily inventory push to GuardLMS."
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php
+msgid "GuardLMS base URL"
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php
+msgid "The base URL of the GuardLMS service. Must use HTTPS."
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php
+msgid "Push endpoint path"
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php
+msgid "The path appended to the base URL when pushing inventory data."
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php
+msgid "API key"
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php
+msgid "The site-bound push key issued by your GuardLMS dashboard."
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php
+msgid "Include configuration"
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php
+msgid "Optionally include a small set of non-secret configuration flags (WP_DEBUG, force_ssl_admin, users_can_register, default_role, blog_public) in the push payload."
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php
+msgid "Verification token"
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php
+msgid "Paste the ownership verification token from your GuardLMS dashboard to render the verification meta tag."
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php
+msgid "Push now"
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php
+msgid "Register this URL in GuardLMS:"
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php
+msgid "Last push:"
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php
+msgid "Never pushed yet."
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php
+msgid "Last push status:"
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php
+msgid "Push completed successfully."
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php
+msgid "Settings saved."
+msgstr ""
+
+#. translators: %d: number of days until the push key expires.
+#: includes/admin/class-guardlms-settings.php
+msgid "Your GuardLMS push key expires in %d day(s). Renew it soon to keep CVE monitoring active."
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php
+msgid "This site's URL has changed since the GuardLMS key was connected. The push key has been cleared for security. Please reconnect GuardLMS for this site."
+msgstr ""
+
+#: includes/class-guardlms-pusher.php
+msgid "GuardLMS is not configured. Enter a base URL and API key before pushing."
+msgstr ""
+
+#. translators: %d: HTTP status code returned by the GuardLMS push endpoint.
+#: includes/class-guardlms-pusher.php
+msgid "GuardLMS push failed with HTTP status %d."
+msgstr ""
+
+#. translators: 1: the site URL registered in the GuardLMS dashboard. 2: the site's actual URL.
+#: includes/class-guardlms-pusher.php
+msgid "GuardLMS push failed: this site's URL does not match the URL registered in the GuardLMS dashboard. Registered: %1$s. Actual: %2$s."
+msgstr ""
+
+#: includes/class-guardlms-pusher.php
+msgid "GuardLMS push was skipped because the plugin/theme inventory looks incomplete. No data was sent, to avoid corrupting your CVE monitoring."
+msgstr ""
+
+#: includes/class-guardlms-cron.php
+msgid "GuardLMS daily push failed."
+msgstr ""

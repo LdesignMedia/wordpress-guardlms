@@ -1,0 +1,8 @@
+vendor/
+node_modules/
+.phpunit.result.cache
+*.log
+
+# Generated PHPUnit fixture: empty stand-in for wp-admin/includes/plugin.php so
+# the collector/pusher require_once succeeds under Brain Monkey (WP core absent).
+/wp-admin/

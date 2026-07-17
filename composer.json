@@ -1,0 +1,38 @@
+{
+    "name": "ldesignmedia/guardlms",
+    "description": "GuardLMS WordPress plugin — reports site core/plugin/theme/environment inventory to GuardLMS for CVE and security monitoring.",
+    "type": "wordpress-plugin",
+    "license": "GPL-3.0-or-later",
+    "keywords": [
+        "wordpress",
+        "security",
+        "cve",
+        "inventory",
+        "guardlms"
+    ],
+    "homepage": "https://app.guardlms.com",
+    "require": {
+        "php": ">=7.4"
+    },
+    "require-dev": {
+        "squizlabs/php_codesniffer": "^3.9",
+        "wp-coding-standards/wpcs": "^3.1",
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+        "phpunit/phpunit": "^9",
+        "brain/monkey": "^2.6",
+        "mockery/mockery": "^1.6"
+    },
+    "scripts": {
+        "phpcs": "phpcs",
+        "phpcbf": "phpcbf",
+        "phpunit": "phpunit",
+        "test": "phpunit"
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

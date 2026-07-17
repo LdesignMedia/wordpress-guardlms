@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<ruleset name="GuardLMS">
+	<description>WordPress-Extra coding standards for the GuardLMS plugin.</description>
+
+	<!-- Scan the plugin, excluding build and dependency output. -->
+	<file>.</file>
+	<exclude-pattern>/vendor/</exclude-pattern>
+	<exclude-pattern>/node_modules/</exclude-pattern>
+	<exclude-pattern>/tests/</exclude-pattern>
+
+	<!-- Only PHP, show sniff names and progress, use colour. -->
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<arg value="sp"/>
+	<arg name="parallel" value="8"/>
+
+	<!-- Target PHP and WordPress support baselines. -->
+	<config name="testVersion" value="7.4-"/>
+	<config name="minimum_supported_wp_version" value="6.0"/>
+
+	<rule ref="WordPress-Extra"/>
+
+	<!-- Enforce the plugin text domain. -->
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="guardlms"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- Require the GuardLMS / guardlms prefix on all globals. -->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="GuardLMS"/>
+				<element value="guardlms"/>
+			</property>
+		</properties>
+	</rule>
+</ruleset>
