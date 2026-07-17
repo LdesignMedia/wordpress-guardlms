@@ -1,115 +1,157 @@
 # GuardLMS for WordPress
 
-GuardLMS is a WordPress plugin that reports your site's core version, plugin/theme inventory,
-and server/PHP environment to the [GuardLMS](https://app.guardlms.com) service on a daily
-basis, so known CVEs affecting your stack are detected and surfaced in your GuardLMS dashboard.
+A WordPress plugin that reports the site to [GuardLMS](https://app.guardlms.com)
+for security monitoring. Once a day the plugin pushes the WordPress version, the
+installed plugin and theme inventory and the server environment to GuardLMS over
+HTTPS. GuardLMS matches the site against known CVEs.
 
-This plugin is a WordPress port of the observable behaviour of `moodle-local_guardlms`,
-re-implemented with WordPress-native primitives (Options API, WP-Cron, HTTP API, Settings API).
+This plugin is a WordPress port of the observable behaviour of
+[`moodle-local_guardlms`](https://github.com/LdesignMedia/moodle-local_guardlms),
+re-implemented with WordPress-native primitives (Options API, WP-Cron, HTTP API,
+Settings API, REST API).
 
-## Documentation
+## What it does
 
-* [`CONTRACT.md`](CONTRACT.md) — the authoritative shared contract every class, option key,
-  method signature, and file in this plugin must conform to exactly.
+A daily scheduled task builds a payload and sends it to the configured GuardLMS
+endpoint, authenticated with a bearer push key. The payload is a typed envelope so
+sections can grow over time:
 
-Read it before contributing; this README summarizes it but is not a substitute.
+- `wordpress`: version, multisite flag, locale and every installed plugin, theme,
+  must-use plugin and drop-in as its folder slug, version, display name,
+  standard/third party flag and enabled/active state
+- `server`: operating system, hostname and webserver software
+- `php`: PHP version, SAPI, loaded `php.ini`, memory limit, max execution time,
+  upload and post size limits, timezone and the loaded extensions
+- `config` (optional, off by default): selected security settings, such as
+  `WP_DEBUG`, `force_ssl_admin`, `users_can_register`, `default_role` and
+  `blog_public`, so GuardLMS can review how the site is hardened
 
-## Architecture
+Plugin and theme versions are reported with the raw values exactly as WordPress
+records them, because GuardLMS matches CVEs on the folder slug and version — the
+same identity the WPScan and NVD feeds use.
 
-The plugin is a set of small, single-responsibility classes under `includes/`, each in its own
-file, using the classic `GuardLMS_` class prefix (no PHP namespace, for WPCS filename
-compatibility):
+### Example payload
 
-* `GuardLMS_Options` / `GuardLMS_Credentials` — settings storage. Non-secret settings
-  (`guardlms_settings`) are autoloaded; the API key (`guardlms_credentials`) is stored
-  separately with `autoload => 'no'` and is never rendered or logged.
-* `GuardLMS_Collector` — builds the inventory payload (core, plugins, themes, server, PHP,
-  optional allowlisted config).
-* `GuardLMS_Http` / `GuardLMS_Pusher` — sends the payload to GuardLMS via `wp_remote_post()`
-  with `redirection => 0` and `reject_unsafe_urls => true`, including a degraded-push guard
-  that refuses to overwrite GuardLMS's inventory with an implausible empty/partial snapshot.
-* `GuardLMS_Cron` — schedules the jittered daily push and the one-off initial push.
-* `GuardLMS_Head_Injector` — renders the `<meta name="guardlms-verification">` ownership tag.
-* `includes/admin/GuardLMS_Settings` — the Settings API page: enable/disable, base URL, push
-  path, API key, verification token, "Push now", and status/expiry/clone notices.
+```json
+{
+  "platform": "wordpress",
+  "siteurl": "https://example.com",
+  "generatedtime": 1781308800,
+  "wordpress": {
+    "version": "6.7.1",
+    "multisite": false,
+    "locale": "en_US",
+    "plugincount": 2,
+    "plugins": [
+      {
+        "slug": "woocommerce",
+        "file": "woocommerce/woocommerce.php",
+        "name": "WooCommerce",
+        "version": "9.4.2",
+        "kind": "plugin",
+        "isstandard": false,
+        "enabled": 1,
+        "networkactive": 0
+      },
+      {
+        "slug": "akismet",
+        "file": "akismet/akismet.php",
+        "name": "Akismet Anti-spam",
+        "version": "5.3.0",
+        "kind": "plugin",
+        "isstandard": true,
+        "enabled": 0,
+        "networkactive": 0
+      }
+    ],
+    "themes": [
+      {
+        "slug": "twentytwentyfour",
+        "name": "Twenty Twenty-Four",
+        "version": "1.2",
+        "kind": "theme",
+        "active": true
+      }
+    ]
+  },
+  "server": {
+    "os_family": "Linux",
+    "os": "Linux",
+    "hostname": "web01",
+    "webserver": "Apache/2.4.58"
+  },
+  "php": {
+    "version": "8.2.0",
+    "sapi": "fpm-fcgi",
+    "ini": "/etc/php/8.2/fpm/php.ini",
+    "memory_limit": "512M",
+    "max_execution_time": "30",
+    "upload_max_filesize": "100M",
+    "post_max_size": "100M",
+    "timezone": "UTC",
+    "extensions": ["Core", "curl", "json", "..."]
+  }
+}
+```
 
-See `CONTRACT.md` for the full file layout and class contracts. The Phase 2 connect/OAuth
-classes are not yet implemented.
+## Installation
 
-## Phase 1 vs Phase 2 scope
+1. Upload the plugin to `wp-content/plugins/guardlms` (or install the zip from the
+   Plugins screen).
+2. Activate **GuardLMS** from the Plugins screen.
 
-This repository currently ships **Phase 1**:
+## Connect to GuardLMS (recommended)
 
-* Daily and on-demand inventory push using a manually issued, site-bound GuardLMS API key.
-* Settings page showing the exact site URL to register in the GuardLMS dashboard, plus last
-  push time/status.
-* Key-expiry warning (within 30 days) and an automatic clone/URL guard that clears the stored
-  key if the site's URL changes (e.g. staging clones).
-* Optional, opt-in ownership verification via a `<meta name="guardlms-verification">` tag,
-  using a token pasted from the GuardLMS dashboard.
+1. Open **Settings > GuardLMS Connect**.
+2. Click **Connect to GuardLMS**. Your browser is sent to GuardLMS where you log
+   in or create a **free** account and confirm the connection.
+3. Done. The site is registered in GuardLMS, site ownership is verified
+   automatically (the plugin serves a verification meta tag), the push key is
+   installed, and the first inventory push is queued.
 
-**Phase 2** (not yet implemented, gated on GuardLMS backend co-deliverables)
-will add a keyless one-click "Connect" flow (OAuth-style consent + callback + server-to-server
-key exchange), automatic ownership verification (meta tag + DNS-TXT, delivered via the connect
-exchange), and cache-purge-on-connect for common caching plugins/hosts.
+No API keys to copy, no tokens to paste. The daily push runs from WP-Cron; you can
+also run it on demand with **Push now** on the settings page. If pushes ever fail
+or the push key is about to expire, open the connect page and click **Reconnect**.
 
-No functionality beyond what is described above and in `CONTRACT.md` is implemented;
-if you're looking for connect/OAuth, disconnect, or automated ownership verification, that work
-is tracked as Phase 2.
+## Manual configuration (fallback)
+
+For advanced setups you can still configure the plugin by hand:
+
+1. Open **Settings > GuardLMS**.
+2. Paste an inventory push key and register the exact site URL shown on the page
+   in your GuardLMS dashboard.
+3. Leave the base URL and push path at their defaults unless GuardLMS support tells
+   you otherwise.
+4. Optionally enable **Include configuration** to also report the selected security
+   settings listed above.
+
+The push key is stored in a dedicated, non-autoloaded option and is never rendered
+or logged. It can also be supplied outside the database with
+`define( 'GUARDLMS_PUSH_KEY', '...' );` in `wp-config.php`, which takes precedence.
+
+## Requirements
+
+- WordPress 6.0 or later.
+- PHP 7.4 or later.
 
 ## Development
 
-### Requirements
-
-* PHP 7.4+ (tested against PHP 7.4 and 8.2 in CI)
-* [Composer](https://getcomposer.org/)
-* WordPress 6.0+ (target environment; unit tests run without a live WordPress install via
-  Brain Monkey)
-
-### Setup
-
 ```bash
 composer install
+composer phpcs   # WordPress-Extra coding standard
+composer test    # PHPUnit + Brain Monkey unit tests
 ```
 
-### Coding standards
+`CONTRACT.md` documents the class layout, option keys, method signatures and the
+exact payload shape every part of the plugin conforms to. WordPress core functions
+are stubbed with Brain Monkey, so the unit tests run without a live WordPress
+install. CI runs `composer phpcs` and `composer test` on PHP 7.4 and 8.2.
 
-The project follows the `WordPress-Extra` PHPCS ruleset (see `phpcs.xml.dist`), with the
-`guardlms`/`GuardLMS` text-domain and prefix, targeting PHP 7.4+.
-
-```bash
-composer phpcs
-```
-
-### Tests
-
-```bash
-composer test
-```
-
-Unit tests cover the collector, options, credentials, HTTP, pusher, and head-injector classes
-(including the degraded-push guard and HTTP error mapping) using PHPUnit with Brain
-Monkey/Mockery.
-
-### Continuous Integration
-
-`.github/workflows/ci.yml` runs `composer phpcs` and `composer test` on PHP 7.4 and 8.2 for
-every push and pull request.
-
-## Distribution & update channel
-
-**WordPress.org SVN is the primary distribution channel.** Once the plugin passes the
-WordPress.org plugin review, releases are published to the WordPress.org plugin directory and
-sites receive updates through WordPress's built-in update mechanism, same as any other
-WordPress.org-hosted plugin.
-
-As a fallback for self-hosted or pre-release distribution (e.g. before the plugin is approved
-on WordPress.org, or for a premium/private build), the plugin can be wired to
-[`plugin-update-checker`](https://github.com/YahnisElsts/plugin-update-checker) to check a
-self-hosted update manifest instead of WordPress.org. This is a fallback only — WordPress.org
-SVN remains the primary, intended distribution channel for this plugin.
+**Distribution:** WordPress.org SVN is the primary channel; for self-hosted or
+pre-release builds the plugin can be wired to
+[`plugin-update-checker`](https://github.com/YahnisElsts/plugin-update-checker)
+as a fallback.
 
 ## License
 
-GuardLMS is licensed under the GNU General Public License v3.0 (GPLv3). See
-https://www.gnu.org/licenses/gpl-3.0.html for the full license text.
+GNU GPL v3 or later. See <https://www.gnu.org/licenses/gpl-3.0.html>.

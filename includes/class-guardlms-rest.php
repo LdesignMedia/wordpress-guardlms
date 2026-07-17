@@ -2,8 +2,10 @@
 /**
  * GuardLMS REST route for the browser-redirect Connect callback.
  *
- * @package GuardLMS
- * @license GPL-3.0-or-later
+ * @package    GuardLMS
+ * @copyright  2026 Luuk Verhoeven, ldesignmedia.nl <info@ldesignmedia.nl>
+ * @author     Hamza Tamyachte
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 /**
