@@ -88,14 +88,20 @@ class GuardLMS_Rest {
 
 		if ( is_wp_error( $result ) ) {
 			$flag = 'error';
-			set_transient(
-				GuardLMS_Connect_Page::NOTICE_TRANSIENT,
-				array(
-					'type'    => 'error',
-					'message' => $result->get_error_message(),
-				),
-				MINUTE_IN_SECONDS
-			);
+			// The route is public, so only surface an error notice for a request
+			// that actually carried both connect parameters. An unauthenticated GET
+			// with missing/blank params must not write a transient or plant a notice
+			// that a legitimate admin would then see on the Connect page.
+			if ( '' !== $code && '' !== $state ) {
+				set_transient(
+					GuardLMS_Connect_Page::NOTICE_TRANSIENT,
+					array(
+						'type'    => 'error',
+						'message' => $result->get_error_message(),
+					),
+					MINUTE_IN_SECONDS
+				);
+			}
 		} else {
 			$flag = 'success';
 			set_transient(

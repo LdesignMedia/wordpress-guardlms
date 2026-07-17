@@ -276,6 +276,32 @@ final class ConnectManagerTest extends AbstractGuardLMSTestCase {
 		$this->assertGreaterThan( time(), $this->scheduled[0][0] );
 	}
 
+	public function test_complete_connect_reconnect_preserves_disabled_reporting(): void {
+		// Already connected but reporting turned OFF. A reconnect (key refresh) must
+		// preserve the admin's choice, not silently re-enable daily reporting.
+		$state = bin2hex( random_bytes( 20 ) );
+		$this->store['guardlms_credentials'] = array( 'apikey' => 'old-key' );
+		$this->seedSettings(
+			array(
+				'connectstate'         => $state,
+				'connectstateexpires'  => time() + 300,
+				'connectstate_baseurl' => 'https://backend.test',
+				'connectedat'          => time() - 100,
+				'enabled'              => false,
+			)
+		);
+
+		Functions\when( 'home_url' )->justReturn( 'https://site.test/' );
+		$captured = array();
+		$this->stubExchangeSuccess( $captured );
+
+		$result = GuardLMS_Connect_Manager::complete_connect( 'code123', $state );
+
+		$this->assertTrue( $result );
+		// enabled stays false across the reconnect.
+		$this->assertFalse( $this->settings()['enabled'] );
+	}
+
 	// --- complete_connect(): state machine failures --------------------------
 
 	public function test_complete_connect_mismatched_state_errors_and_keeps_pending_state(): void {

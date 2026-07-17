@@ -307,4 +307,29 @@ final class RestTest extends AbstractGuardLMSTestCase {
 		// No credentials were stored.
 		$this->assertArrayNotHasKey( 'guardlms_credentials', $this->store );
 	}
+
+	public function test_handle_callback_missing_params_writes_no_notice(): void {
+		// The route is public: an unauthenticated hit with blank code/state must not
+		// write a transient or plant a notice a legitimate admin would later see.
+		$this->seedSettings(
+			array(
+				'connectstate'         => bin2hex( random_bytes( 20 ) ),
+				'connectstateexpires'  => time() + 300,
+				'connectstate_baseurl' => 'https://backend.test',
+			)
+		);
+		Functions\expect( 'wp_remote_post' )->never();
+
+		$request  = new GuardLMS_Test_Rest_Request(
+			array(
+				'code'  => '',
+				'state' => '',
+			)
+		);
+		$location = $this->captureRedirect( $request );
+
+		// Still redirects with an error flag, but writes NO transient.
+		$this->assertStringContainsString( 'guardlms_connect=error', $location );
+		$this->assertArrayNotHasKey( GuardLMS_Connect_Page::NOTICE_TRANSIENT, $this->transients );
+	}
 }

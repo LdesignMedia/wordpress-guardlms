@@ -53,6 +53,12 @@ class GuardLMS_Connect_Manager {
 		$state   = bin2hex( random_bytes( 20 ) );
 		$baseurl = rtrim( (string) GuardLMS_Options::get( 'baseurl' ), '/' );
 
+		// Never build a hostless consent URL: fall back to the default host if the
+		// base URL setting has been cleared, so the redirect always targets GuardLMS.
+		if ( '' === $baseurl ) {
+			$baseurl = rtrim( GUARDLMS_DEFAULT_BASEURL, '/' );
+		}
+
 		GuardLMS_Options::update(
 			array(
 				'connectstate'         => $state,
@@ -90,6 +96,7 @@ class GuardLMS_Connect_Manager {
 	 * @return true|WP_Error True on success, WP_Error on any failure.
 	 */
 	public static function complete_connect( string $code, string $state ) {
+		$was_connected  = self::is_connected();
 		$stored_state   = (string) GuardLMS_Options::get( 'connectstate' );
 		$stored_expires = (int) GuardLMS_Options::get( 'connectstateexpires' );
 		$stored_baseurl = (string) GuardLMS_Options::get( 'connectstate_baseurl' );
@@ -134,7 +141,9 @@ class GuardLMS_Connect_Manager {
 			'keyexpiresat'      => isset( $data['expires_at'] ) ? (int) ( strtotime( (string) $data['expires_at'] ) ?: 0 ) : 0,
 			'connectedat'       => time(),
 			'connected_siteurl' => $siteurl,
-			'enabled'           => true,
+			// A first-time connect enables reporting; a reconnect (key refresh)
+			// preserves the admin's current on/off choice rather than overriding it.
+			'enabled'           => $was_connected ? (bool) GuardLMS_Options::get( 'enabled' ) : true,
 		);
 
 		if ( isset( $data['pushpath'] ) && '' !== $data['pushpath'] ) {

@@ -200,11 +200,7 @@ class GuardLMS_Connect_Page {
 	 * @return void
 	 */
 	public static function handle_start(): void {
-		check_admin_referer( self::START_ACTION );
-
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You do not have permission to perform this action.', 'guardlms' ) );
-		}
+		self::guard( self::START_ACTION );
 
 		$consent_url = GuardLMS_Connect_Manager::start_connect();
 
@@ -222,11 +218,7 @@ class GuardLMS_Connect_Page {
 	 * @return void
 	 */
 	public static function handle_disconnect(): void {
-		check_admin_referer( self::DISCONNECT_ACTION );
-
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You do not have permission to perform this action.', 'guardlms' ) );
-		}
+		self::guard( self::DISCONNECT_ACTION );
 
 		GuardLMS_Connect_Manager::disconnect();
 
@@ -249,6 +241,23 @@ class GuardLMS_Connect_Page {
 			)
 		);
 		exit;
+	}
+
+	/**
+	 * Verify the nonce for an admin-post action and the caller's capability.
+	 *
+	 * Dies on a missing/invalid nonce (via check_admin_referer) or when the user
+	 * lacks manage_options. Shared by the connect/disconnect handlers.
+	 *
+	 * @param string $action The admin-post action / nonce name.
+	 * @return void
+	 */
+	private static function guard( string $action ): void {
+		check_admin_referer( $action );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'guardlms' ) );
+		}
 	}
 
 	/**
