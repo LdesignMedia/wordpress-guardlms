@@ -114,6 +114,19 @@ final class SettingsSanitizeTest extends AbstractGuardLMSTestCase {
 		$this->assertSame( self::STORED['baseurl'], $clean['baseurl'] );
 	}
 
+	public function test_host_and_path_ignores_the_scheme(): void {
+		// home_url() follows the scheme of the current request, so the clone guard
+		// must not treat https://site.test as a different site than http://site.test.
+		$this->assertSame(
+			GuardLMS_Settings::host_and_path( 'http://site.test' ),
+			GuardLMS_Settings::host_and_path( 'https://site.test/' )
+		);
+		$this->assertNotSame(
+			GuardLMS_Settings::host_and_path( 'https://site.test' ),
+			GuardLMS_Settings::host_and_path( 'https://clone.test' )
+		);
+	}
+
 	public function test_programmatic_write_passes_through_untouched(): void {
 		$_POST['option_page'] = 'some_other_group';
 

@@ -76,30 +76,26 @@ class GuardLMS_Connect_Page {
 	 */
 	public static function render_status(): void {
 		$connected = GuardLMS_Connect_Manager::is_connected();
-		$websiteid = (int) GuardLMS_Options::get( 'websiteid' );
 		$connectat = (int) GuardLMS_Options::get( 'connectedat' );
 		$expiresat = (int) GuardLMS_Options::get( 'keyexpiresat' );
 		$lastpush  = (int) GuardLMS_Options::get( 'lastpush' );
 		$format    = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
 		?>
 		<div>
+			<p class="guardlms-status">
+				<strong><?php esc_html_e( 'Status:', 'guardlms' ); ?></strong>
+				<span class="guardlms-badge <?php echo $connected ? 'guardlms-badge-connected' : 'guardlms-badge-disconnected'; ?>">
+					<?php
+					echo $connected
+						? esc_html__( 'Connected', 'guardlms' )
+						: esc_html__( 'Not connected', 'guardlms' );
+					?>
+				</span>
+			</p>
+
 			<?php if ( $connected ) : ?>
-				<p>
-					<strong><?php esc_html_e( 'Status:', 'guardlms' ); ?></strong>
-					<?php esc_html_e( 'Connected to GuardLMS.', 'guardlms' ); ?>
-				</p>
 				<table class="widefat striped" style="max-width:640px">
 					<tbody>
-						<tr>
-							<th scope="row"><?php esc_html_e( 'Website ID', 'guardlms' ); ?></th>
-							<td>
-								<?php
-								echo $websiteid > 0
-									? esc_html( (string) $websiteid )
-									: esc_html__( 'Unknown', 'guardlms' );
-								?>
-							</td>
-						</tr>
 						<tr>
 							<th scope="row"><?php esc_html_e( 'Connected at', 'guardlms' ); ?></th>
 							<td>
@@ -133,10 +129,6 @@ class GuardLMS_Connect_Page {
 					</tbody>
 				</table>
 			<?php else : ?>
-				<p>
-					<strong><?php esc_html_e( 'Status:', 'guardlms' ); ?></strong>
-					<?php esc_html_e( 'Not connected.', 'guardlms' ); ?>
-				</p>
 				<p>
 					<?php esc_html_e( 'Connect this site to GuardLMS to start security monitoring. You will be sent to GuardLMS to sign in or create a free account, then returned here automatically, with no API key to copy.', 'guardlms' ); ?>
 				</p>

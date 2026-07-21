@@ -135,6 +135,32 @@ class GuardLMS_Settings {
 	}
 
 	/**
+	 * Inline styles for the plugin screen: brand header and the status badge.
+	 *
+	 * Kept inline and tiny rather than an enqueued stylesheet, and deliberately
+	 * mirrors styles.css in the Moodle plugin so both connectors look the same.
+	 *
+	 * @return void
+	 */
+	private static function render_styles() {
+		?>
+		<style>
+			.guardlms-title { display: flex; align-items: center; gap: 10px; }
+			.guardlms-logo { height: 32px; width: auto; }
+			.guardlms-status { margin: 1em 0 .5em; }
+			.guardlms-badge {
+				display: inline-block;
+				padding: 2px 10px;
+				border-radius: 10px;
+				font-weight: 600;
+			}
+			.guardlms-badge-connected { background: #d7f5df; color: #0a6b31; }
+			.guardlms-badge-disconnected { background: #fcdada; color: #a02020; }
+		</style>
+		<?php
+	}
+
+	/**
 	 * Whether the advanced view is requested for this page load.
 	 *
 	 * The connection fields are deliberately URL-only, so a site owner sees a page
@@ -266,9 +292,15 @@ class GuardLMS_Settings {
 		} else {
 			$status_text = __( 'No successful push yet.', 'guardlms' );
 		}
+		self::render_styles();
 		?>
 		<div class="wrap">
-			<h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
+			<h1 class="guardlms-title">
+				<img class="guardlms-logo"
+					src="<?php echo esc_url( GUARDLMS_PLUGIN_URL . 'assets/logo.png' ); ?>"
+					alt="<?php esc_attr_e( 'GuardLMS', 'guardlms' ); ?>">
+				<?php echo esc_html( get_admin_page_title() ); ?>
+			</h1>
 
 			<?php
 			// The whole end-user surface: connection status plus one button.
@@ -363,6 +395,17 @@ class GuardLMS_Settings {
 	}
 
 	/**
+	 * A site URL reduced to host and path, so two URLs can be compared without
+	 * their scheme deciding the outcome.
+	 *
+	 * @param string $url Absolute site URL.
+	 * @return string
+	 */
+	public static function host_and_path( string $url ) {
+		return preg_replace( '#^[a-z][a-z0-9+.-]*://#i', '', rtrim( trim( $url ), '/' ) );
+	}
+
+	/**
 	 * Emit admin notices on `admin_init`: clone guard + key-expiry warning.
 	 *
 	 * @return void
@@ -380,8 +423,11 @@ class GuardLMS_Settings {
 			$connected_url = $current_url;
 		}
 
-		// (a) Clone guard: the site URL changed since the key was bound.
-		if ( '' !== $connected_url && $current_url !== $connected_url ) {
+		// (a) Clone guard: the site URL changed since the key was bound. Compared
+		// without the scheme, because home_url() follows the scheme of the current
+		// request: an admin opening the site over https after the key was bound over
+		// http is the same site, not a clone, and must not lose its key.
+		if ( '' !== $connected_url && self::host_and_path( $current_url ) !== self::host_and_path( $connected_url ) ) {
 			GuardLMS_Credentials::delete();
 			GuardLMS_Options::set( 'connected_siteurl', '' );
 
