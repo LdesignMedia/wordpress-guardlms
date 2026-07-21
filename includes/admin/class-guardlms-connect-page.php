@@ -29,18 +29,23 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Renders the Settings -> GuardLMS Connect page and handles its admin-post
- * actions. Connecting redirects to the external GuardLMS consent screen;
- * disconnecting clears the stored credentials.
+ * Renders the connect block on the Settings -> GuardLMS page and handles its
+ * admin-post actions. Connecting redirects to the external GuardLMS consent
+ * screen; disconnecting clears the stored credentials.
+ *
+ * There is no separate menu entry: GuardLMS_Settings::render_page() calls
+ * render_status() and render_buttons(), so a site owner sees one page with one
+ * button.
  */
 class GuardLMS_Connect_Page {
 
 	/**
-	 * Admin page slug (submenu under Settings).
+	 * Admin page slug the connect actions return to. Same page as
+	 * GuardLMS_Settings::PAGE, kept literal so this class stays loadable on its own.
 	 *
 	 * @var string
 	 */
-	const PAGE = 'guardlms-connect';
+	const PAGE = 'guardlms';
 
 	/**
 	 * admin-post action that starts a connect attempt.
@@ -64,33 +69,12 @@ class GuardLMS_Connect_Page {
 	const NOTICE_TRANSIENT = 'guardlms_connect_notice';
 
 	/**
-	 * Register the Connect submenu page. Hooked to `admin_menu`.
+	 * Render the connection status: either the connected details table or the
+	 * short "what happens when you connect" intro.
 	 *
 	 * @return void
 	 */
-	public static function register(): void {
-		add_submenu_page(
-			'options-general.php',
-			__( 'GuardLMS Connect', 'guardlms' ),
-			__( 'GuardLMS Connect', 'guardlms' ),
-			'manage_options',
-			self::PAGE,
-			array( __CLASS__, 'render_page' )
-		);
-	}
-
-	/**
-	 * Render the Connect page: connection status and connect/disconnect buttons.
-	 *
-	 * @return void
-	 */
-	public static function render_page(): void {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You do not have permission to access this page.', 'guardlms' ) );
-		}
-
-		self::render_notice();
-
+	public static function render_status(): void {
 		$connected = GuardLMS_Connect_Manager::is_connected();
 		$websiteid = (int) GuardLMS_Options::get( 'websiteid' );
 		$connectat = (int) GuardLMS_Options::get( 'connectedat' );
@@ -98,9 +82,7 @@ class GuardLMS_Connect_Page {
 		$lastpush  = (int) GuardLMS_Options::get( 'lastpush' );
 		$format    = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
 		?>
-		<div class="wrap">
-			<h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
-
+		<div>
 			<?php if ( $connected ) : ?>
 				<p>
 					<strong><?php esc_html_e( 'Status:', 'guardlms' ); ?></strong>
@@ -156,10 +138,21 @@ class GuardLMS_Connect_Page {
 					<?php esc_html_e( 'Not connected.', 'guardlms' ); ?>
 				</p>
 				<p>
-					<?php esc_html_e( 'Connect this site to GuardLMS to start security monitoring. You will be sent to GuardLMS to sign in or create a free account, then returned here automatically — no API key to copy.', 'guardlms' ); ?>
+					<?php esc_html_e( 'Connect this site to GuardLMS to start security monitoring. You will be sent to GuardLMS to sign in or create a free account, then returned here automatically, with no API key to copy.', 'guardlms' ); ?>
 				</p>
 			<?php endif; ?>
+		</div>
+		<?php
+	}
 
+	/**
+	 * Render the Connect / Reconnect button, plus Disconnect when connected.
+	 *
+	 * @return void
+	 */
+	public static function render_buttons(): void {
+		$connected = GuardLMS_Connect_Manager::is_connected();
+		?>
 			<div style="margin-top:1em">
 				<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post" style="display:inline-block">
 					<input type="hidden" name="action" value="<?php echo esc_attr( self::START_ACTION ); ?>">
@@ -189,7 +182,6 @@ class GuardLMS_Connect_Page {
 					</form>
 				<?php endif; ?>
 			</div>
-		</div>
 		<?php
 	}
 
@@ -265,9 +257,11 @@ class GuardLMS_Connect_Page {
 	/**
 	 * Render (and clear) the one-shot connect result notice, if present.
 	 *
+	 * Called by GuardLMS_Settings::render_page(), which owns the admin page.
+	 *
 	 * @return void
 	 */
-	private static function render_notice(): void {
+	public static function render_notice(): void {
 		$notice = get_transient( self::NOTICE_TRANSIENT );
 		if ( false === $notice || ! is_array( $notice ) ) {
 			return;

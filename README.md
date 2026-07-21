@@ -100,34 +100,44 @@ same identity the WPScan and NVD feeds use.
    Plugins screen).
 2. Activate **GuardLMS** from the Plugins screen.
 
-## Connect to GuardLMS (recommended)
+## Connect to GuardLMS
 
-1. Open **Settings > GuardLMS Connect**.
+1. Open **Settings > GuardLMS**.
 2. Click **Connect to GuardLMS**. Your browser is sent to GuardLMS where you log
    in or create a **free** account and confirm the connection.
 3. Done. The site is registered in GuardLMS, site ownership is verified
    automatically (the plugin serves a verification meta tag), the push key is
    installed, and the first inventory push is queued.
 
-No API keys to copy, no tokens to paste. The daily push runs from WP-Cron; you can
-also run it on demand with **Push now** on the settings page. If pushes ever fail
-or the push key is about to expire, open the connect page and click **Reconnect**.
+No API keys to copy, no tokens to paste. The daily push runs from WP-Cron. If
+pushes ever fail or the push key is about to expire, open the page again and click
+**Reconnect**.
 
-## Manual configuration (fallback)
+## Advanced settings (support and self-hosted only)
 
-For advanced setups you can still configure the plugin by hand:
+The settings page shows the connection status and one button, nothing else, so a
+site owner cannot break a working connection by editing an endpoint. The
+connection fields live on the same page behind a URL parameter:
 
-1. Open **Settings > GuardLMS**.
-2. Paste an inventory push key and register the exact site URL shown on the page
-   in your GuardLMS dashboard.
-3. Leave the base URL and push path at their defaults unless GuardLMS support tells
-   you otherwise.
-4. Optionally enable **Include configuration** to also report the selected security
-   settings listed above.
+```
+/wp-admin/options-general.php?page=guardlms&advanced=1
+```
+
+That view exposes the base URL, the push path, the API key, the verification
+token, the reporting toggle, the "Include configuration" toggle and **Push now**.
+
+Values can also be pinned in `wp-config.php`, which takes precedence over the
+stored settings, keeps them out of the database, and renders them read-only in the
+advanced view:
+
+```php
+define( 'GUARDLMS_PUSH_KEY', '...' );                        // inventory push key
+define( 'GUARDLMS_BASEURL', 'https://guardlms.example.com' ); // self-hosted GuardLMS
+define( 'GUARDLMS_PUSHPATH', '/api/externalpush/wordpress' );
+```
 
 The push key is stored in a dedicated, non-autoloaded option and is never rendered
-or logged. It can also be supplied outside the database with
-`define( 'GUARDLMS_PUSH_KEY', '...' );` in `wp-config.php`, which takes precedence.
+or logged.
 
 ## Requirements
 

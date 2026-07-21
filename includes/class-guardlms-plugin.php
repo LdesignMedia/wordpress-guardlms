@@ -64,9 +64,9 @@ class GuardLMS_Plugin {
 		add_action( 'admin_init', array( 'GuardLMS_Settings', 'maybe_notice' ) );
 		add_action( 'admin_post_guardlms_push_now', array( 'GuardLMS_Settings', 'handle_push_now' ) );
 
-		// Phase 2 keyless Connect: REST callback, admin Connect page, admin-post actions.
+		// Phase 2 keyless Connect: REST callback and the admin-post actions. The
+		// connect UI itself is rendered inside the single GuardLMS settings page.
 		add_action( 'rest_api_init', array( 'GuardLMS_Rest', 'register' ) );
-		add_action( 'admin_menu', array( 'GuardLMS_Connect_Page', 'register' ) );
 		add_action( 'admin_post_guardlms_connect_start', array( 'GuardLMS_Connect_Page', 'handle_start' ) );
 		add_action( 'admin_post_guardlms_disconnect', array( 'GuardLMS_Connect_Page', 'handle_disconnect' ) );
 

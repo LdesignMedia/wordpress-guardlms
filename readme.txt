@@ -28,15 +28,14 @@ surfaced in your GuardLMS dashboard so you can patch or remove it before it is e
   assess environment-specific risk.
 * Pushes this snapshot to GuardLMS once a day via a background (WP-Cron) task, and on demand
   whenever you click "Push now" in the plugin settings.
-* Optionally renders a `<meta name="guardlms-verification">` tag in your site's `<head>` so you
-  can prove ownership of the site to GuardLMS, using a token you paste from your GuardLMS
-  dashboard.
+* Renders a `<meta name="guardlms-verification">` tag in your site's `<head>` so GuardLMS can
+  verify that you own the site. The token is installed by the connect flow.
 * Optionally includes a small, non-secret set of configuration flags (`WP_DEBUG`,
   `force_ssl_admin`, `users_can_register`, `default_role`, `blog_public`) when you explicitly
-  opt in — this is disabled by default.
+  opt in, disabled by default.
 
-This is a Phase 1 release: it works with a manually issued GuardLMS push key. A keyless
-one-click "Connect" flow with automated ownership verification is planned for a future release.
+Setup is one click: "Connect to GuardLMS" sends you to GuardLMS to confirm, then installs the
+push key and verifies ownership automatically. No API key to copy.
 
 = Third Party Services =
 
@@ -81,12 +80,15 @@ unconfigured.
    through the WordPress Plugins screen directly.
 2. Activate the plugin through the "Plugins" screen in WordPress.
 3. Go to **Settings → GuardLMS**.
-4. Sign in to your GuardLMS dashboard (https://app.guardlms.com) and register this site's URL
-   (shown on the settings page) to obtain an API push key.
-5. Enter the API key on the GuardLMS settings page, confirm "Enable GuardLMS reporting and
-   ownership verification." is checked, and save your settings.
-6. Optionally click "Push now" to send the first inventory snapshot immediately, and optionally
-   paste a verification token from your GuardLMS dashboard to enable the ownership meta tag.
+4. Click "Connect to GuardLMS". You are sent to GuardLMS to sign in or create a free account and
+   confirm the connection, then returned to your site.
+5. That is it. The site is registered, ownership is verified automatically, the push key is
+   installed and the first inventory push is queued.
+
+Advanced settings (base URL, push path, API key, verification token, manual push) are hidden on
+purpose so a working connection cannot be broken by accident. Support and self-hosted setups can
+reach them at `/wp-admin/options-general.php?page=guardlms&advanced=1`, or pin them in
+`wp-config.php` with `GUARDLMS_PUSH_KEY`, `GUARDLMS_BASEURL` and `GUARDLMS_PUSHPATH`.
 
 == Frequently Asked Questions ==
 
@@ -98,24 +100,24 @@ posts, pages, users, or database content are ever transmitted.
 
 = Do I need a GuardLMS account? =
 
-Yes. You need a GuardLMS account and a site-bound API push key to use this plugin. Register at
-https://app.guardlms.com.
+Yes. You need a GuardLMS account. A free account is enough. Register at
+https://app.guardlms.com, or create one during the connect flow.
 
-= What happens if I don't configure an API key? =
+= What happens if I don't connect the site? =
 
-The plugin stays inactive: no data is collected or sent, and the daily push is skipped with a
-"not configured" notice until you add a key.
+The plugin stays inactive: no data is collected or sent, and the daily push is skipped until you
+click "Connect to GuardLMS".
 
 = Why did my push key stop working after I cloned or moved my site? =
 
 GuardLMS ties a push key to the site URL it was issued for. If the plugin detects that your
 site's URL has changed since the key was saved (for example after cloning to a staging
 environment), it automatically clears the stored key so the clone cannot push data as if it
-were the original site. Reconnect with a key issued for the new URL.
+were the original site. Click "Connect to GuardLMS" again to reconnect the new URL.
 
 = How often is data sent? =
 
-Once a day via WP-Cron, plus on demand whenever you click "Push now".
+Once a day via WP-Cron, plus on demand with "Push now" in the advanced view.
 
 = Is my GuardLMS API key stored securely? =
 

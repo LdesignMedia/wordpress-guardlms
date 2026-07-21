@@ -60,19 +60,61 @@ class GuardLMS_Options {
 	}
 
 	/**
-	 * The full settings array: stored values layered over defaults.
+	 * The stored settings layered over the defaults, without wp-config overrides.
 	 *
-	 * Defaults fill any missing keys; stored values win where present.
+	 * This is the value that may be written back to the database. Use all() to read
+	 * the settings the plugin actually runs on.
 	 *
 	 * @return array
 	 */
-	public static function all() {
+	public static function stored() {
 		$stored = get_option( self::OPTION, array() );
 		if ( ! is_array( $stored ) ) {
 			$stored = array();
 		}
 
 		return array_merge( self::defaults(), $stored );
+	}
+
+	/**
+	 * The effective settings: wp-config constants over stored values over defaults.
+	 *
+	 * GUARDLMS_BASEURL and GUARDLMS_PUSHPATH let a host pin the endpoint the same way
+	 * GUARDLMS_PUSH_KEY pins the key. A pinned value is never written back to the
+	 * database, so removing the constant restores the stored value.
+	 *
+	 * @return array
+	 */
+	public static function all() {
+		$settings = self::stored();
+
+		if ( defined( 'GUARDLMS_BASEURL' ) && '' !== trim( (string) GUARDLMS_BASEURL ) ) {
+			$settings['baseurl'] = rtrim( trim( (string) GUARDLMS_BASEURL ), '/' );
+		}
+
+		if ( defined( 'GUARDLMS_PUSHPATH' ) && '' !== trim( (string) GUARDLMS_PUSHPATH ) ) {
+			$settings['pushpath'] = trim( (string) GUARDLMS_PUSHPATH );
+		}
+
+		return $settings;
+	}
+
+	/**
+	 * Whether a setting is pinned by a wp-config constant and cannot be edited.
+	 *
+	 * @param string $key Setting key.
+	 * @return bool
+	 */
+	public static function is_pinned( string $key ) {
+		if ( 'baseurl' === $key ) {
+			return defined( 'GUARDLMS_BASEURL' ) && '' !== trim( (string) GUARDLMS_BASEURL );
+		}
+
+		if ( 'pushpath' === $key ) {
+			return defined( 'GUARDLMS_PUSHPATH' ) && '' !== trim( (string) GUARDLMS_PUSHPATH );
+		}
+
+		return false;
 	}
 
 	/**
@@ -106,7 +148,9 @@ class GuardLMS_Options {
 	 * @return void
 	 */
 	public static function update( array $values ) {
-		$merged = array_merge( self::all(), $values );
+		// Merge into the stored settings, never into the effective ones, so a value
+		// pinned by a wp-config constant does not leak into the database.
+		$merged = array_merge( self::stored(), $values );
 		update_option( self::OPTION, $merged, 'yes' );
 	}
 
