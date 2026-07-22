@@ -76,10 +76,6 @@ class GuardLMS_Connect_Page {
 	 */
 	public static function render_status(): void {
 		$connected = GuardLMS_Connect_Manager::is_connected();
-		$connectat = (int) GuardLMS_Options::get( 'connectedat' );
-		$expiresat = (int) GuardLMS_Options::get( 'keyexpiresat' );
-		$lastpush  = (int) GuardLMS_Options::get( 'lastpush' );
-		$format    = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
 		?>
 		<div>
 			<p class="guardlms-status">
@@ -93,47 +89,65 @@ class GuardLMS_Connect_Page {
 				</span>
 			</p>
 
-			<?php if ( $connected ) : ?>
-				<table class="widefat striped" style="max-width:640px">
-					<tbody>
-						<tr>
-							<th scope="row"><?php esc_html_e( 'Connected at', 'guardlms' ); ?></th>
-							<td>
-								<?php
-								echo $connectat > 0
-									? esc_html( wp_date( $format, $connectat ) )
-									: esc_html__( 'Unknown', 'guardlms' );
-								?>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row"><?php esc_html_e( 'Key expires', 'guardlms' ); ?></th>
-							<td>
-								<?php
-								echo $expiresat > 0
-									? esc_html( wp_date( $format, $expiresat ) )
-									: esc_html__( 'Unknown', 'guardlms' );
-								?>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row"><?php esc_html_e( 'Last push', 'guardlms' ); ?></th>
-							<td>
-								<?php
-								echo $lastpush > 0
-									? esc_html( wp_date( $format, $lastpush ) )
-									: esc_html__( 'No successful push yet.', 'guardlms' );
-								?>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			<?php else : ?>
+			<?php if ( ! $connected ) : ?>
 				<p>
 					<?php esc_html_e( 'Connect this site to GuardLMS to start security monitoring. You will be sent to GuardLMS to sign in or create a free account, then returned here automatically, with no API key to copy.', 'guardlms' ); ?>
 				</p>
 			<?php endif; ?>
 		</div>
+		<?php
+	}
+
+	/**
+	 * Render the connection dates. Rendered under the buttons: the action comes
+	 * first, the dates are reference information.
+	 *
+	 * @return void
+	 */
+	public static function render_details(): void {
+		if ( ! GuardLMS_Connect_Manager::is_connected() ) {
+			return;
+		}
+
+		$connectat = (int) GuardLMS_Options::get( 'connectedat' );
+		$expiresat = (int) GuardLMS_Options::get( 'keyexpiresat' );
+		$lastpush  = (int) GuardLMS_Options::get( 'lastpush' );
+		$format    = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
+		?>
+		<table class="widefat striped" style="max-width:640px;margin-top:1em">
+			<tbody>
+				<tr>
+					<th scope="row"><?php esc_html_e( 'Connected at', 'guardlms' ); ?></th>
+					<td>
+						<?php
+						echo $connectat > 0
+							? esc_html( wp_date( $format, $connectat ) )
+							: esc_html__( 'Unknown', 'guardlms' );
+						?>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><?php esc_html_e( 'Expires at', 'guardlms' ); ?></th>
+					<td>
+						<?php
+						echo $expiresat > 0
+							? esc_html( wp_date( $format, $expiresat ) )
+							: esc_html__( 'Unknown', 'guardlms' );
+						?>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><?php esc_html_e( 'Last push', 'guardlms' ); ?></th>
+					<td>
+						<?php
+						echo $lastpush > 0
+							? esc_html( wp_date( $format, $lastpush ) )
+							: esc_html__( 'No successful push yet.', 'guardlms' );
+						?>
+					</td>
+				</tr>
+			</tbody>
+		</table>
 		<?php
 	}
 
@@ -151,7 +165,7 @@ class GuardLMS_Connect_Page {
 					<?php
 					wp_nonce_field( self::START_ACTION );
 					submit_button(
-						$connected ? __( 'Reconnect', 'guardlms' ) : __( 'Connect to GuardLMS', 'guardlms' ),
+						$connected ? __( 'Reconnect', 'guardlms' ) : __( 'Connect', 'guardlms' ),
 						'primary',
 						'guardlms_connect_start_submit',
 						false

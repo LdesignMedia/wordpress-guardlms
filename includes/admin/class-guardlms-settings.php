@@ -303,9 +303,10 @@ class GuardLMS_Settings {
 			</h1>
 
 			<?php
-			// The whole end-user surface: connection status plus one button.
+			// The whole end-user surface: status, the action, then the dates.
 			GuardLMS_Connect_Page::render_status();
 			GuardLMS_Connect_Page::render_buttons();
+			GuardLMS_Connect_Page::render_details();
 			?>
 
 			<?php if ( $advanced ) : ?>
