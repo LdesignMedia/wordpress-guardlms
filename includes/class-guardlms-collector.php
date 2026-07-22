@@ -201,12 +201,131 @@ class GuardLMS_Collector {
 
 		$hostname = gethostname();
 
-		return array(
-			'os_family' => PHP_OS_FAMILY,
-			'os'        => PHP_OS,
-			'hostname'  => false !== $hostname ? $hostname : null,
-			'webserver' => $webserver,
+		list( $webserver_name, $webserver_version ) = self::split_server_signature( (string) $webserver );
+
+		// os_family, os and webserver stay as they were: an older GuardLMS keeps
+		// reading them while the split fields below are what CVE matching needs.
+		return array_merge(
+			array(
+				'os_family'         => PHP_OS_FAMILY,
+				'os'                => PHP_OS,
+				'hostname'          => false !== $hostname ? $hostname : null,
+				'webserver'         => $webserver,
+				'webserver_name'    => $webserver_name,
+				'webserver_version' => $webserver_version,
+			),
+			self::collect_os()
 		);
+	}
+
+	/**
+	 * Distribution level operating system detail.
+	 *
+	 * PHP only reports the kernel ("Linux"), which is not enough to match an OS
+	 * against known vulnerabilities or an end-of-life date. On Linux the release
+	 * is read from the os-release file, the standard the distributions publish.
+	 * Reads only: no shell commands, so it also works where exec() is disabled.
+	 *
+	 * @return array The operating system fields.
+	 */
+	private static function collect_os(): array {
+		$info = array(
+			'os_name'    => PHP_OS_FAMILY,
+			'os_id'      => strtolower( PHP_OS_FAMILY ),
+			'os_version' => '',
+			'os_pretty'  => '',
+			'kernel'     => php_uname( 'r' ),
+			'arch'       => php_uname( 'm' ),
+		);
+
+		$release = self::os_release_values();
+
+		if ( $release ) {
+			$info['os_name']    = isset( $release['NAME'] ) ? $release['NAME'] : $info['os_name'];
+			$info['os_id']      = isset( $release['ID'] ) ? $release['ID'] : $info['os_id'];
+			$info['os_version'] = isset( $release['VERSION_ID'] ) ? $release['VERSION_ID'] : '';
+			$info['os_pretty']  = isset( $release['PRETTY_NAME'] ) ? $release['PRETTY_NAME'] : '';
+		} elseif ( 'Darwin' === PHP_OS_FAMILY ) {
+			// macOS has no os-release file; the Darwin kernel version is the only
+			// version PHP exposes without shelling out to sw_vers.
+			$info['os_name']    = 'macOS';
+			$info['os_id']      = 'macos';
+			$info['os_version'] = php_uname( 'r' );
+		} elseif ( 'Windows' === PHP_OS_FAMILY ) {
+			$info['os_name']    = php_uname( 's' );
+			$info['os_id']      = 'windows';
+			$info['os_version'] = php_uname( 'r' );
+		}
+
+		if ( '' === $info['os_pretty'] ) {
+			$info['os_pretty'] = trim( $info['os_name'] . ' ' . $info['os_version'] );
+		}
+
+		return $info;
+	}
+
+	/**
+	 * Parse /etc/os-release into key => value pairs.
+	 *
+	 * @return array Empty when the file is absent or unreadable.
+	 */
+	private static function os_release_values(): array {
+		$values = array();
+
+		foreach ( array( '/etc/os-release', '/usr/lib/os-release' ) as $path ) {
+			if ( ! is_readable( $path ) ) {
+				continue;
+			}
+
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents, WordPress.PHP.NoSilencedErrors.Discouraged -- Local system file, not a remote request, and a race with an unreadable file must not warn during a cron push.
+			$contents = @file_get_contents( $path );
+			if ( false === $contents ) {
+				continue;
+			}
+
+			foreach ( preg_split( '/\R/', $contents ) as $line ) {
+				if ( false === strpos( $line, '=' ) || 0 === strpos( trim( $line ), '#' ) ) {
+					continue;
+				}
+				list( $key, $value )    = explode( '=', $line, 2 );
+				$values[ trim( $key ) ] = trim( trim( $value ), "\"'" );
+			}
+
+			if ( $values ) {
+				return $values;
+			}
+		}
+
+		return $values;
+	}
+
+	/**
+	 * Split a web server signature into its product name and version.
+	 *
+	 * "Apache/2.4.68 (Debian)" becomes array( 'Apache', '2.4.68' ), "nginx/1.24.0"
+	 * becomes array( 'nginx', '1.24.0' ). A signature without a version keeps the
+	 * name and returns an empty version.
+	 *
+	 * @param string $signature Raw SERVER_SOFTWARE value.
+	 * @return array Name and version, both possibly empty strings.
+	 */
+	private static function split_server_signature( string $signature ): array {
+		$signature = trim( $signature );
+		if ( '' === $signature ) {
+			return array( '', '' );
+		}
+
+		// Only the leading product token matters; the rest is "(Debian) PHP/8.2".
+		$product = strtok( $signature, ' ' );
+		if ( false === $product ) {
+			return array( '', '' );
+		}
+
+		if ( false === strpos( $product, '/' ) ) {
+			return array( $product, '' );
+		}
+
+		return explode( '/', $product, 2 );
 	}
 
 	/**

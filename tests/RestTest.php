@@ -266,9 +266,9 @@ final class RestTest extends AbstractGuardLMSTestCase {
 		$this->assertStringContainsString( 'guardlms_connect=success', $location );
 		$this->assertStringContainsString( 'https://site.test/wp-admin/options-general.php', $location );
 
-		// A success notice is queued for the admin page.
-		$this->assertArrayHasKey( GuardLMS_Connect_Page::NOTICE_TRANSIENT, $this->transients );
-		$this->assertSame( 'success', $this->transients[ GuardLMS_Connect_Page::NOTICE_TRANSIENT ]['type'] );
+		// No success notice: the page already shows the connection status, and a
+		// notice repeating it reads as a second, different message.
+		$this->assertArrayNotHasKey( GuardLMS_Connect_Page::NOTICE_TRANSIENT, $this->transients );
 
 		// The connection actually completed (credentials stored).
 		$this->assertSame( array( 'apikey' => 'push-key-abc' ), $this->store['guardlms_credentials'] );

@@ -102,11 +102,10 @@ class GuardLMS_Rest {
 				);
 			}
 		} else {
-			$flag   = 'success';
-			$notice = array(
-				'type'    => 'success',
-				'message' => __( 'Connected to GuardLMS successfully.', 'guardlms' ),
-			);
+			// No success notice: the page the admin lands on already states the
+			// connection status, and a notice saying the same thing reads as two
+			// different messages.
+			$flag = 'success';
 		}
 
 		if ( null !== $notice ) {

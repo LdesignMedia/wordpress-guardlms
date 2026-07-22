@@ -135,6 +135,52 @@ class GuardLMS_Settings {
 	}
 
 	/**
+	 * Inline styles for the plugin screen: brand header and the status badge.
+	 *
+	 * Kept inline and tiny rather than an enqueued stylesheet, and deliberately
+	 * mirrors styles.css in the Moodle plugin so both connectors look the same.
+	 *
+	 * @return void
+	 */
+	private static function render_styles() {
+		?>
+		<style>
+			.guardlms-title { display: flex; align-items: center; gap: 10px; }
+			.guardlms-logo { height: 32px; width: auto; }
+			.guardlms-status { margin: 1em 0 .5em; }
+			.guardlms-badge {
+				display: inline-block;
+				padding: 2px 10px;
+				border-radius: 10px;
+				font-weight: 600;
+			}
+			.guardlms-badge-connected { background: #d7f5df; color: #0a6b31; }
+			.guardlms-badge-disconnected { background: #fcdada; color: #a02020; }
+		</style>
+		<?php
+	}
+
+	/**
+	 * Whether the advanced view is requested for this page load.
+	 *
+	 * The connection fields are deliberately URL-only, so a site owner sees a page
+	 * with a single Connect button and cannot break a working connection by hand:
+	 * options-general.php?page=guardlms&advanced=1
+	 *
+	 * @return bool
+	 */
+	public static function is_advanced() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return false;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only view switch; it reveals fields the capability check above already allows.
+		$advanced = isset( $_GET['advanced'] ) ? sanitize_text_field( wp_unslash( $_GET['advanced'] ) ) : '';
+
+		return '' !== $advanced && '0' !== $advanced;
+	}
+
+	/**
 	 * Sanitize the submitted settings and persist the API key out-of-band.
 	 *
 	 * @param mixed $input Raw (slashed) POST data for the option.
@@ -149,50 +195,61 @@ class GuardLMS_Settings {
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- The Settings API verifies the nonce (check_admin_referer) before triggering this filter; option_page only distinguishes the real form save from programmatic re-entry.
 		$option_page = isset( $_POST['option_page'] ) ? sanitize_key( wp_unslash( $_POST['option_page'] ) ) : '';
 		if ( self::GROUP !== $option_page ) {
-			return is_array( $input ) ? $input : GuardLMS_Options::all();
+			return is_array( $input ) ? $input : GuardLMS_Options::stored();
 		}
 
 		if ( ! is_array( $input ) ) {
 			$input = array();
 		}
 
-		// Start from the current stored settings and overlay only the form-managed
-		// fields, so any key the form does not manage (webserver, connected_siteurl,
-		// lastpush, lastpushstatus, keyexpiresat, last_plugincount) survives untouched.
-		$clean = GuardLMS_Options::all();
+		// Start from the current STORED settings (not the effective ones, so a
+		// wp-config-pinned base URL is not written to the database) and overlay only
+		// the keys this submit actually carried. A screen that renders no connection
+		// fields, the default non-advanced page, therefore cannot reset them, and
+		// keys the form never manages (webserver, connected_siteurl, lastpush,
+		// lastpushstatus, keyexpiresat, last_plugincount) survive untouched.
+		$clean = GuardLMS_Options::stored();
 
-		// Enabled (checkbox: present only when checked).
-		$clean['enabled'] = ! empty( $input['enabled'] );
+		// Checkboxes ship a hidden 0 companion input, so the key is present whenever
+		// the field was rendered and absent when it was not.
+		if ( array_key_exists( 'enabled', $input ) ) {
+			$clean['enabled'] = ! empty( $input['enabled'] );
+		}
+
+		if ( array_key_exists( 'sendconfig', $input ) ) {
+			$clean['sendconfig'] = ! empty( $input['sendconfig'] );
+		}
 
 		// Base URL (HTTPS only; non-https or invalid keeps the previous value).
-		$baseurl_raw = isset( $input['baseurl'] ) ? trim( wp_unslash( (string) $input['baseurl'] ) ) : '';
-		if ( '' === $baseurl_raw ) {
-			$clean['baseurl'] = GUARDLMS_DEFAULT_BASEURL;
-		} else {
-			$baseurl = esc_url_raw( $baseurl_raw, array( 'https' ) );
-			if ( '' === $baseurl ) {
-				add_settings_error(
-					self::OPTION,
-					'guardlms_baseurl_https',
-					esc_html__( 'The GuardLMS base URL must use HTTPS. The previous value was kept.', 'guardlms' )
-				);
-				// Keep the existing value already present in $clean['baseurl'].
+		if ( array_key_exists( 'baseurl', $input ) ) {
+			$baseurl_raw = trim( wp_unslash( (string) $input['baseurl'] ) );
+			if ( '' === $baseurl_raw ) {
+				$clean['baseurl'] = GUARDLMS_DEFAULT_BASEURL;
 			} else {
-				$clean['baseurl'] = $baseurl;
+				$baseurl = esc_url_raw( $baseurl_raw, array( 'https' ) );
+				if ( '' === $baseurl ) {
+					add_settings_error(
+						self::OPTION,
+						'guardlms_baseurl_https',
+						esc_html__( 'The GuardLMS base URL must use HTTPS. The previous value was kept.', 'guardlms' )
+					);
+					// Keep the existing value already present in $clean['baseurl'].
+				} else {
+					$clean['baseurl'] = $baseurl;
+				}
 			}
 		}
 
 		// Push path.
-		$pushpath          = isset( $input['pushpath'] ) ? sanitize_text_field( wp_unslash( $input['pushpath'] ) ) : '';
-		$clean['pushpath'] = ( '' === $pushpath ) ? GUARDLMS_DEFAULT_PUSHPATH : $pushpath;
+		if ( array_key_exists( 'pushpath', $input ) ) {
+			$pushpath          = sanitize_text_field( wp_unslash( (string) $input['pushpath'] ) );
+			$clean['pushpath'] = ( '' === $pushpath ) ? GUARDLMS_DEFAULT_PUSHPATH : $pushpath;
+		}
 
-		// Send configuration (checkbox).
-		$clean['sendconfig'] = ! empty( $input['sendconfig'] );
-
-		// Verification token (public, pasted from the dashboard).
-		$clean['verificationtoken'] = isset( $input['verificationtoken'] )
-			? sanitize_text_field( wp_unslash( $input['verificationtoken'] ) )
-			: '';
+		// Verification token (public, written by the connect flow, editable for support).
+		if ( array_key_exists( 'verificationtoken', $input ) ) {
+			$clean['verificationtoken'] = sanitize_text_field( wp_unslash( (string) $input['verificationtoken'] ) );
+		}
 
 		// API key: persisted via GuardLMS_Credentials, never stored in this option.
 		$apikey = isset( $input['apikey'] ) ? trim( wp_unslash( (string) $input['apikey'] ) ) : '';
@@ -217,7 +274,9 @@ class GuardLMS_Settings {
 		}
 
 		self::render_push_notice();
+		GuardLMS_Connect_Page::render_notice();
 
+		$advanced   = self::is_advanced();
 		$home       = home_url();
 		$lastpush   = (int) GuardLMS_Options::get( 'lastpush' );
 		$laststatus = (int) GuardLMS_Options::get( 'lastpushstatus' );
@@ -233,34 +292,58 @@ class GuardLMS_Settings {
 		} else {
 			$status_text = __( 'No successful push yet.', 'guardlms' );
 		}
+		self::render_styles();
 		?>
 		<div class="wrap">
-			<h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
+			<h1 class="guardlms-title">
+				<img class="guardlms-logo"
+					src="<?php echo esc_url( GUARDLMS_PLUGIN_URL . 'assets/logo.png' ); ?>"
+					alt="<?php esc_attr_e( 'GuardLMS', 'guardlms' ); ?>">
+				<?php echo esc_html( get_admin_page_title() ); ?>
+			</h1>
 
-			<form action="options.php" method="post">
-				<?php
-				settings_fields( self::GROUP );
-				do_settings_sections( self::PAGE );
-				submit_button();
-				?>
-			</form>
+			<?php
+			// The whole end-user surface: status, the action, then the dates.
+			GuardLMS_Connect_Page::render_status();
+			GuardLMS_Connect_Page::render_buttons();
+			GuardLMS_Connect_Page::render_details();
+			?>
 
-			<hr>
+			<?php if ( $advanced ) : ?>
+				<hr>
 
-			<h2><?php esc_html_e( 'Register this site', 'guardlms' ); ?></h2>
-			<p>
-				<?php esc_html_e( 'Register this URL in GuardLMS:', 'guardlms' ); ?>
-				<code><?php echo esc_html( $home ); ?></code>
-			</p>
-			<p><?php echo esc_html( $status_text ); ?></p>
+				<h2><?php esc_html_e( 'Advanced settings', 'guardlms' ); ?></h2>
+				<div class="notice notice-warning inline">
+					<p>
+						<?php esc_html_e( 'These settings are only needed for a self-hosted GuardLMS instance or for support. Changing them on a normal site breaks the connection.', 'guardlms' ); ?>
+					</p>
+				</div>
 
-			<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post">
-				<input type="hidden" name="action" value="<?php echo esc_attr( self::PUSH_ACT ); ?>">
-				<?php
-				wp_nonce_field( self::PUSH_ACT );
-				submit_button( __( 'Push now', 'guardlms' ), 'secondary', 'guardlms_push_now_submit', false );
-				?>
-			</form>
+				<form action="options.php" method="post">
+					<?php
+					settings_fields( self::GROUP );
+					do_settings_sections( self::PAGE );
+					submit_button();
+					?>
+				</form>
+
+				<hr>
+
+				<h2><?php esc_html_e( 'Manual push', 'guardlms' ); ?></h2>
+				<p>
+					<?php esc_html_e( 'Site URL registered in GuardLMS:', 'guardlms' ); ?>
+					<code><?php echo esc_html( $home ); ?></code>
+				</p>
+				<p><?php echo esc_html( $status_text ); ?></p>
+
+				<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post">
+					<input type="hidden" name="action" value="<?php echo esc_attr( self::PUSH_ACT ); ?>">
+					<?php
+					wp_nonce_field( self::PUSH_ACT );
+					submit_button( __( 'Push now', 'guardlms' ), 'secondary', 'guardlms_push_now_submit', false );
+					?>
+				</form>
+			<?php endif; ?>
 		</div>
 		<?php
 	}
@@ -298,16 +381,29 @@ class GuardLMS_Settings {
 			MINUTE_IN_SECONDS
 		);
 
+		// Push now only exists on the advanced view, so return the admin to it.
 		wp_safe_redirect(
 			add_query_arg(
 				array(
 					'page'          => self::PAGE,
+					'advanced'      => 1,
 					'guardlms_push' => $type,
 				),
 				admin_url( 'options-general.php' )
 			)
 		);
 		exit;
+	}
+
+	/**
+	 * A site URL reduced to host and path, so two URLs can be compared without
+	 * their scheme deciding the outcome.
+	 *
+	 * @param string $url Absolute site URL.
+	 * @return string
+	 */
+	public static function host_and_path( string $url ) {
+		return preg_replace( '#^[a-z][a-z0-9+.-]*://#i', '', rtrim( trim( $url ), '/' ) );
 	}
 
 	/**
@@ -328,8 +424,11 @@ class GuardLMS_Settings {
 			$connected_url = $current_url;
 		}
 
-		// (a) Clone guard: the site URL changed since the key was bound.
-		if ( '' !== $connected_url && $current_url !== $connected_url ) {
+		// (a) Clone guard: the site URL changed since the key was bound. Compared
+		// without the scheme, because home_url() follows the scheme of the current
+		// request: an admin opening the site over https after the key was bound over
+		// http is the same site, not a clone, and must not lose its key.
+		if ( '' !== $connected_url && self::host_and_path( $current_url ) !== self::host_and_path( $connected_url ) ) {
 			GuardLMS_Credentials::delete();
 			GuardLMS_Options::set( 'connected_siteurl', '' );
 
@@ -413,7 +512,10 @@ class GuardLMS_Settings {
 	 * @return void
 	 */
 	public static function field_enabled() {
+		// The hidden 0 keeps the key present in the POST when the box is unchecked,
+		// which is how sanitize() tells "unchecked" from "field not rendered".
 		printf(
+			'<input type="hidden" name="guardlms_settings[enabled]" value="0">' .
 			'<label><input type="checkbox" name="guardlms_settings[enabled]" value="1" %s> %s</label>',
 			checked( (bool) GuardLMS_Options::get( 'enabled' ), true, false ),
 			esc_html__( 'Enable GuardLMS reporting and ownership verification.', 'guardlms' )
@@ -426,6 +528,11 @@ class GuardLMS_Settings {
 	 * @return void
 	 */
 	public static function field_baseurl() {
+		if ( GuardLMS_Options::is_pinned( 'baseurl' ) ) {
+			self::render_pinned_field( 'baseurl', 'GUARDLMS_BASEURL' );
+			return;
+		}
+
 		printf(
 			'<input type="url" class="regular-text" name="guardlms_settings[baseurl]" value="%1$s" placeholder="%2$s">',
 			esc_attr( (string) GuardLMS_Options::get( 'baseurl' ) ),
@@ -438,11 +545,37 @@ class GuardLMS_Settings {
 	}
 
 	/**
+	 * Render a setting that is pinned by a wp-config constant as read-only text.
+	 *
+	 * @param string $key      Setting key to display.
+	 * @param string $constant Name of the wp-config constant that pins it.
+	 * @return void
+	 */
+	private static function render_pinned_field( string $key, string $constant ) {
+		printf( '<code>%s</code>', esc_html( (string) GuardLMS_Options::get( $key ) ) );
+		printf(
+			'<p class="description">%s</p>',
+			esc_html(
+				sprintf(
+					/* translators: %s: wp-config.php constant name. */
+					__( 'Defined in wp-config.php (%s) and cannot be changed here.', 'guardlms' ),
+					$constant
+				)
+			)
+		);
+	}
+
+	/**
 	 * Render the push path field.
 	 *
 	 * @return void
 	 */
 	public static function field_pushpath() {
+		if ( GuardLMS_Options::is_pinned( 'pushpath' ) ) {
+			self::render_pinned_field( 'pushpath', 'GUARDLMS_PUSHPATH' );
+			return;
+		}
+
 		printf(
 			'<input type="text" class="regular-text" name="guardlms_settings[pushpath]" value="%1$s" placeholder="%2$s">',
 			esc_attr( (string) GuardLMS_Options::get( 'pushpath' ) ),
@@ -485,6 +618,7 @@ class GuardLMS_Settings {
 	 */
 	public static function field_sendconfig() {
 		printf(
+			'<input type="hidden" name="guardlms_settings[sendconfig]" value="0">' .
 			'<label><input type="checkbox" name="guardlms_settings[sendconfig]" value="1" %s> %s</label>',
 			checked( (bool) GuardLMS_Options::get( 'sendconfig' ), true, false ),
 			esc_html__( 'Include a small, non-secret configuration summary (WP_DEBUG, registration, default role, etc.) in each push.', 'guardlms' )
