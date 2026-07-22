@@ -64,7 +64,8 @@ final class SettingsSanitizeTest extends AbstractGuardLMSTestCase {
 		Functions\when( 'home_url' )->justReturn( 'https://site.test' );
 		Functions\when( 'esc_url_raw' )->alias(
 			static function ( $url, $protocols = null ) {
-				return str_starts_with( (string) $url, 'https://' ) ? (string) $url : '';
+				// strpos, not str_starts_with: the plugin supports PHP 7.4.
+				return 0 === strpos( (string) $url, 'https://' ) ? (string) $url : '';
 			}
 		);
 	}
