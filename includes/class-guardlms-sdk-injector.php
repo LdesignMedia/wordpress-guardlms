@@ -147,18 +147,18 @@ class GuardLMS_Sdk_Injector {
 			return;
 		}
 
-		self::enqueue_sdk();
-		self::maybe_enqueue_selftest();
+		self::maybe_enqueue_selftest( self::enqueue_sdk() );
 	}
 
 	/**
 	 * Enqueue the SDK bundle and its init call, when every condition holds.
 	 *
-	 * @return void
+	 * @return bool Whether the SDK was actually enqueued on this request.
 	 */
 	private static function enqueue_sdk() {
-		if ( ! GuardLMS_Options::get( 'enabled' ) ) {
-			return;
+		$reporting_enabled = (bool) GuardLMS_Options::get( 'enabled' );
+		if ( ! $reporting_enabled ) {
+			return false;
 		}
 
 		$sdk = GuardLMS_Sdk_Config::all();
@@ -167,13 +167,13 @@ class GuardLMS_Sdk_Injector {
 		// non-autoloaded credentials option, so a site that never opted in pays
 		// no extra database read at all on the front end.
 		if ( empty( $sdk['enabled'] ) ) {
-			return;
+			return false;
 		}
 
 		$sdk_key = GuardLMS_Credentials::get_sdk_key();
 
-		if ( ! GuardLMS_Sdk_Status::should_inject( $sdk, $sdk_key ) ) {
-			return;
+		if ( ! GuardLMS_Sdk_Status::should_inject( $sdk, $sdk_key, $reporting_enabled ) ) {
+			return false;
 		}
 
 		// $ver is null because the cache-buster rides inside sdk_url as
@@ -192,6 +192,8 @@ class GuardLMS_Sdk_Injector {
 			'GuardLMS.init(' . wp_json_encode( self::build_config( $sdk, $sdk_key ), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT ) . ');',
 			'after'
 		);
+
+		return true;
 	}
 
 	/**
@@ -302,7 +304,18 @@ class GuardLMS_Sdk_Injector {
 	 * raw <script> is the documented escape hatch if a specific optimizer still
 	 * wins on a given site.
 	 *
-	 * @param string $tag    The full <script> tag.
+	 * SCOPED TO THE OPENING TAG, DELIBERATELY. `$tag` is NOT just the
+	 * `<script src>` element: WP_Scripts::do_item() concatenates any registered
+	 * inline scripts onto it (`$tag .= $after_script`) BEFORE applying this
+	 * filter, so the string handed here contains our entire GuardLMS.init(…)
+	 * payload. Rewriting it unscoped edits that JSON - a dashboard-configured
+	 * error pattern containing " async" loses those characters, and one
+	 * containing " async=1" truncates the rest of the block into an unterminated
+	 * string literal, so init() never runs while the bundle still loads and
+	 * window.GuardLMS still exists. Only the first opening tag carrying a src is
+	 * touched; every other byte is returned verbatim.
+	 *
+	 * @param string $tag    The script markup for this handle, inline scripts included.
 	 * @param string $handle The script handle being filtered.
 	 * @return string
 	 */
@@ -311,9 +324,36 @@ class GuardLMS_Sdk_Injector {
 			return $tag;
 		}
 
-		$tag = (string) $tag;
+		$tag  = (string) $tag;
+		$done = false;
 
-		// Drop defer/async, valued or bare.
+		$result = preg_replace_callback(
+			// `[^>]*` cannot cross the tag's own closing bracket, which is what
+			// bounds every rewrite below to the opening tag.
+			'#<script\b[^>]*\bsrc=[^>]*>#i',
+			static function ( $matches ) use ( &$done ) {
+				if ( $done ) {
+					return $matches[0];
+				}
+				$done = true;
+
+				return self::rewrite_opening_tag( $matches[0] );
+			},
+			$tag
+		);
+
+		return null === $result ? $tag : $result;
+	}
+
+	/**
+	 * Strip defer/async from one opening <script> tag and mark it do-not-optimize.
+	 *
+	 * @param string $tag A single opening `<script …>` tag.
+	 * @return string
+	 */
+	private static function rewrite_opening_tag( string $tag ) {
+		// Drop defer/async, valued or bare. Safe to be greedy here: the subject
+		// is one opening tag, so `[^\s>]+` cannot run past its `>`.
 		$stripped = preg_replace( '#\s+(?:defer|async)(?:=(?:"[^"]*"|\'[^\']*\'|[^\s>]+))?#i', '', $tag );
 		if ( null !== $stripped ) {
 			$tag = $stripped;
@@ -321,15 +361,18 @@ class GuardLMS_Sdk_Injector {
 
 		// Add the opt-out markers, once.
 		if ( false === strpos( $tag, 'data-no-optimize' ) ) {
-			$tag = preg_replace(
+			$added = preg_replace(
 				'#<script\s#i',
 				'<script data-no-optimize="1" data-no-defer="1" data-cfasync="false" data-wpmeteor-nooptimize="true" ',
 				$tag,
 				1
 			);
+			if ( null !== $added ) {
+				$tag = $added;
+			}
 		}
 
-		return (string) $tag;
+		return $tag;
 	}
 
 	/**
@@ -340,9 +383,21 @@ class GuardLMS_Sdk_Injector {
 	 * option key. It is registered on its own footer-printed handle so that an
 	 * optimizer deferring the SDK does not also defer its own detector.
 	 *
+	 * REQUIRES THAT THE SDK WAS ACTUALLY ENQUEUED. The probe's only message for
+	 * a missing window.GuardLMS is "another plugin may be deferring or blocking
+	 * it" - true when injection was attempted and the browser did not get it,
+	 * and a fabricated accusation in every case where the plugin itself
+	 * deliberately skipped injection. Those cases already have a correct, more
+	 * specific sentence on the settings page.
+	 *
+	 * @param bool $injected Whether enqueue_sdk() enqueued the SDK this request.
 	 * @return void
 	 */
-	private static function maybe_enqueue_selftest() {
+	private static function maybe_enqueue_selftest( bool $injected ) {
+		if ( ! $injected ) {
+			return;
+		}
+
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only display flag; the capability check below is the actual gate and nothing is written.
 		if ( ! isset( $_GET[ self::SELFTEST_FLAG ] ) ) {
 			return;

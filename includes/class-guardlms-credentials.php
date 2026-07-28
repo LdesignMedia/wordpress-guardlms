@@ -35,10 +35,33 @@ defined( 'ABSPATH' ) || exit;
  *   never exported" rule rather than in the autoloaded settings option.
  *
  * Neither key is ever logged.
+ *
+ * ONE OPTION PER CREDENTIAL, DELIBERATELY. The two keys have independent
+ * writers that genuinely run concurrently - the push key is written by the
+ * connect REST callback and the advanced settings save, the SDK key by the
+ * settings-page bootstrap, the Refresh button and the daily cron. Holding both
+ * in one option would force every write through a read-merge-write over the
+ * whole array, and an interleaving would silently drop whichever key the loser
+ * had not read yet. Losing the SDK key that way leaves a state with no route
+ * back: the backend returns `key: null` once a key has been issued, so a
+ * refresh cannot recover it. Separate rows make each write a single atomic
+ * UPDATE that cannot touch the other credential at all.
  */
 class GuardLMS_Credentials {
 
+	/**
+	 * Option holding the server-to-server push key. Never autoloaded.
+	 *
+	 * @var string
+	 */
 	const OPTION = 'guardlms_credentials';
+
+	/**
+	 * Option holding the real-time monitoring (SDK) key. Never autoloaded.
+	 *
+	 * @var string
+	 */
+	const SDK_OPTION = 'guardlms_sdk_credentials';
 
 	/**
 	 * Resolve the active push key.
@@ -61,14 +84,14 @@ class GuardLMS_Credentials {
 	/**
 	 * Store the push key (non-autoloaded).
 	 *
-	 * Merges rather than replaces, so storing a fresh push key does not silently
-	 * discard the SDK key stored beside it.
+	 * A single atomic write of a single-member array. No read-modify-write, so a
+	 * concurrent SDK-key write cannot be lost - see the class docblock.
 	 *
 	 * @param string $key Push key to store.
 	 * @return void
 	 */
 	public static function set_key( string $key ) {
-		self::write( array( 'apikey' => trim( $key ) ) );
+		update_option( self::OPTION, array( 'apikey' => trim( $key ) ), 'no' );
 	}
 
 	/**
@@ -86,7 +109,7 @@ class GuardLMS_Credentials {
 	 * @return string
 	 */
 	public static function get_sdk_key() {
-		$creds = get_option( self::OPTION, array() );
+		$creds = get_option( self::SDK_OPTION, array() );
 		$sdkey = is_array( $creds ) && isset( $creds['sdkkey'] ) ? (string) $creds['sdkkey'] : '';
 
 		return trim( $sdkey );
@@ -95,61 +118,42 @@ class GuardLMS_Credentials {
 	/**
 	 * Store the real-time monitoring (SDK) key (non-autoloaded).
 	 *
+	 * A single atomic write to its own option row, so a concurrent push-key
+	 * write cannot drop it - see the class docblock.
+	 *
 	 * @param string $key SDK key to store.
 	 * @return void
 	 */
 	public static function set_sdk_key( string $key ) {
-		self::write( array( 'sdkkey' => trim( $key ) ) );
+		update_option( self::SDK_OPTION, array( 'sdkkey' => trim( $key ) ), 'no' );
 	}
 
 	/**
-	 * Drop the stored SDK key, leaving the push key in place.
-	 *
-	 * Deliberately a no-op when the option or the key is absent, so calling this
-	 * after delete() cannot recreate the option that delete() just removed.
+	 * Drop the stored SDK key, leaving the push key untouched.
 	 *
 	 * @return void
 	 */
 	public static function delete_sdk_key() {
-		$stored = get_option( self::OPTION, array() );
-		if ( ! is_array( $stored ) || ! array_key_exists( 'sdkkey', $stored ) ) {
-			return;
-		}
-
-		unset( $stored['sdkkey'] );
-		update_option( self::OPTION, $stored, 'no' );
+		delete_option( self::SDK_OPTION );
 	}
 
 	/**
-	 * Merge values into the stored credentials, keeping the option non-autoloaded.
-	 *
-	 * @param array $values Partial credential values to merge.
-	 * @return void
-	 */
-	private static function write( array $values ) {
-		$stored = get_option( self::OPTION, array() );
-		if ( ! is_array( $stored ) ) {
-			$stored = array();
-		}
-
-		update_option( self::OPTION, array_merge( $stored, $values ), 'no' );
-	}
-
-	/**
-	 * Seed the option on activation, non-autoloaded.
+	 * Seed both credential options on activation, non-autoloaded.
 	 *
 	 * @return void
 	 */
 	public static function ensure_option() {
 		add_option( self::OPTION, array( 'apikey' => '' ), '', 'no' );
+		add_option( self::SDK_OPTION, array( 'sdkkey' => '' ), '', 'no' );
 	}
 
 	/**
-	 * Delete the credentials option.
+	 * Delete both credential options.
 	 *
 	 * @return void
 	 */
 	public static function delete() {
 		delete_option( self::OPTION );
+		delete_option( self::SDK_OPTION );
 	}
 }

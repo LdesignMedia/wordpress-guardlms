@@ -106,17 +106,51 @@ class GuardLMS_Sdk_Status {
 	const ADVISORY_DOMAIN_MISMATCH = 'domainmismatch';
 
 	/**
+	 * GuardLMS reporting is switched off entirely (the master toggle).
+	 *
+	 * Not a §5.3 row: §5.3 describes backend-side states, and this one is a
+	 * local WordPress setting that suppresses every part of the plugin.
+	 *
+	 * @var string
+	 */
+	const STATE_REPORTING_OFF = 'reportingoff';
+
+	/**
+	 * Some injection precondition is unmet that no other state explains.
+	 *
+	 * The catch-all that keeps STATE_OK honest: rather than asserting that the
+	 * diagnosed states cover every way injection can be blocked, headline()
+	 * asks the injection predicate itself and reports this when it disagrees.
+	 *
+	 * @var string
+	 */
+	const STATE_NOT_CONFIGURED = 'notconfigured';
+
+	/**
 	 * Resolve the single headline state for the current configuration.
 	 *
-	 * @param array  $sdk     Effective configuration from GuardLMS_Sdk_Config::all().
-	 * @param string $sdk_key The stored SDK key ('' when none).
+	 * STATE_OK IS A PROMISE, NOT A GUESS. It is returned only when
+	 * blocks_injection() agrees that nothing except the admin's own opt-in
+	 * stands in the way, so the green "monitoring is active" sentence cannot be
+	 * printed while the front end is silently injecting nothing.
+	 *
+	 * @param array  $sdk               Effective configuration from GuardLMS_Sdk_Config::all().
+	 * @param string $sdk_key           The stored SDK key ('' when none).
+	 * @param bool   $reporting_enabled The plugin-wide GuardLMS reporting toggle.
 	 * @return string One of the STATE_* constants.
 	 */
-	public static function headline( array $sdk, string $sdk_key ) {
+	public static function headline( array $sdk, string $sdk_key, bool $reporting_enabled ) {
 		// Row 2 - wins over everything. The section is hidden, so no other
 		// sentence can be rendered anyway.
 		if ( empty( $sdk['backend_supported'] ) ) {
 			return self::STATE_BACKEND_TOO_OLD;
+		}
+
+		// The master toggle. Nothing the backend says matters while the whole
+		// plugin is switched off, and every other sentence would send the admin
+		// to the wrong screen.
+		if ( ! $reporting_enabled ) {
+			return self::STATE_REPORTING_OFF;
 		}
 
 		// `backend_enabled` and `subscription_active` are backend-owned and both
@@ -144,6 +178,16 @@ class GuardLMS_Sdk_Status {
 		// Row 1.
 		if ( '' === trim( $sdk_key ) ) {
 			return self::STATE_NO_KEY;
+		}
+
+		// The catch-all. Every specific diagnosis above has been ruled out, so if
+		// injection is STILL blocked the plugin does not know why - and saying
+		// "active" would be a lie. Asking the predicate rather than re-listing
+		// its conditions is what makes STATE_OK structurally trustworthy: a
+		// condition added to blocks_injection() can never silently start
+		// co-existing with a green status.
+		if ( self::blocks_injection( $sdk, $sdk_key, $reporting_enabled ) ) {
+			return self::STATE_NOT_CONFIGURED;
 		}
 
 		return self::STATE_OK;
@@ -195,25 +239,59 @@ class GuardLMS_Sdk_Status {
 	 * only for rows 4 and 5. Going dark because one refresh timed out would be
 	 * the very silence this design exists to remove.
 	 *
-	 * @param array  $sdk     Effective configuration from GuardLMS_Sdk_Config::all().
-	 * @param string $sdk_key The stored SDK key ('' when none).
+	 * @param array  $sdk               Effective configuration from GuardLMS_Sdk_Config::all().
+	 * @param string $sdk_key           The stored SDK key ('' when none).
+	 * @param bool   $reporting_enabled The plugin-wide GuardLMS reporting toggle.
 	 * @return bool
 	 */
-	public static function should_inject( array $sdk, string $sdk_key ) {
-		if ( empty( $sdk['enabled'] ) || empty( $sdk['backend_supported'] ) ) {
+	public static function should_inject( array $sdk, string $sdk_key, bool $reporting_enabled ) {
+		// The admin's own real-time opt-in is deliberately the ONLY condition
+		// kept out of blocks_injection(): "you have not switched it on" is a
+		// choice, not a fault, and headline() must still be able to say
+		// "everything is ready" while it is unticked.
+		if ( empty( $sdk['enabled'] ) ) {
 			return false;
 		}
 
-		// Row 5 then row 4: refuse to send into a black hole.
+		return ! self::blocks_injection( $sdk, $sdk_key, $reporting_enabled );
+	}
+
+	/**
+	 * Whether anything other than the admin's opt-in prevents injection.
+	 *
+	 * The single list of injection preconditions, shared by should_inject() and
+	 * by headline()'s catch-all so the two can never drift apart. Adding a
+	 * condition here automatically both suppresses injection AND stops the
+	 * settings page claiming monitoring is active.
+	 *
+	 * @param array  $sdk               Effective configuration from GuardLMS_Sdk_Config::all().
+	 * @param string $sdk_key           The stored SDK key ('' when none).
+	 * @param bool   $reporting_enabled The plugin-wide GuardLMS reporting toggle.
+	 * @return bool
+	 */
+	private static function blocks_injection( array $sdk, string $sdk_key, bool $reporting_enabled ) {
+		// The master toggle suppresses the whole plugin, front end included.
+		if ( ! $reporting_enabled ) {
+			return true;
+		}
+
+		if ( empty( $sdk['backend_supported'] ) ) {
+			return true;
+		}
+
+		// Rows 5 then 4: refuse to send into a black hole.
 		if ( empty( $sdk['backend_enabled'] ) || empty( $sdk['subscription_active'] ) ) {
-			return false;
+			return true;
 		}
 
+		// A payload carrying an explicit null, or a non-https URL this plugin
+		// refuses to load, leaves these empty while refreshed_at is still
+		// stamped - which used to read as a healthy site injecting nothing.
 		if ( '' === trim( (string) $sdk['sdk_url'] ) || '' === trim( (string) $sdk['errors_endpoint'] ) ) {
-			return false;
+			return true;
 		}
 
-		return '' !== trim( $sdk_key );
+		return '' === trim( $sdk_key );
 	}
 
 	/**

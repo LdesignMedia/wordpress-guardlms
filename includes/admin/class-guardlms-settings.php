@@ -276,7 +276,6 @@ class GuardLMS_Settings {
 		// versa. Both checkboxes ship a hidden 0 companion.
 		if ( array_key_exists( 'sdk', $input ) && is_array( $input['sdk'] ) ) {
 			$sdk = GuardLMS_Sdk_Config::all();
-			$was = ! empty( $sdk['enabled'] );
 
 			$sdk['enabled'] = ! empty( $input['sdk']['enabled'] );
 			// Analytics needs BOTH the admin's opt-in and the plan entitlement.
@@ -286,12 +285,12 @@ class GuardLMS_Settings {
 
 			$clean['sdk'] = $sdk;
 
-			// Flipping the toggle changes what every cached page must contain, so
-			// purge the page caches that would otherwise serve pre-toggle HTML -
-			// the single most common cause of "I turned it on and nothing happened".
-			if ( $was !== $sdk['enabled'] ) {
-				GuardLMS_Connect_Manager::purge_caches();
-			}
+			// The cache purge deliberately does NOT happen here. sanitize() runs
+			// BEFORE update_option() writes, so purging at this point empties the
+			// cache while the old value is still live - any request landing in
+			// that window re-caches pre-toggle HTML and the purge achieves
+			// nothing. It is hooked to update_option_guardlms_settings instead,
+			// which fires after the write. See maybe_purge_on_toggle().
 		}
 
 		// API key: persisted via GuardLMS_Credentials, never stored in this option.
@@ -400,6 +399,32 @@ class GuardLMS_Settings {
 			<?php endif; ?>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Purge page caches when the real-time toggle actually changed.
+	 *
+	 * Hooked to `update_option_guardlms_settings`, which fires AFTER the new
+	 * value is committed - so the caches refill from HTML that already reflects
+	 * the new setting. Flipping the toggle changes what every cached page must
+	 * contain, and stale cached HTML is the single most common cause of "I
+	 * turned it on and nothing happened".
+	 *
+	 * @param mixed $old_value The previous option value.
+	 * @param mixed $value     The value just written.
+	 * @return void
+	 */
+	public static function maybe_purge_on_toggle( $old_value, $value ) {
+		$was = is_array( $old_value ) && isset( $old_value['sdk']['enabled'] )
+			? ! empty( $old_value['sdk']['enabled'] )
+			: false;
+		$now = is_array( $value ) && isset( $value['sdk']['enabled'] )
+			? ! empty( $value['sdk']['enabled'] )
+			: false;
+
+		if ( $was !== $now ) {
+			GuardLMS_Connect_Manager::purge_caches();
+		}
 	}
 
 	/**

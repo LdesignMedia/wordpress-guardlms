@@ -179,15 +179,24 @@ final class SdkSelfTestTest extends AbstractGuardLMSTestCase {
 			)
 		);
 
-		$this->store['guardlms_settings']    = array(
+		// A healthy, injecting site: the self-test handler now refuses when the
+		// SDK is not actually on the page.
+		$this->store['guardlms_settings']        = array(
+			'enabled'     => true,
 			'baseurl'     => 'https://backend.test',
 			'connectedat' => 1750000000,
 			'websiteid'   => 42,
+			'sdk'         => array(
+				'enabled'             => true,
+				'sdk_url'             => 'https://backend.test/sdk/guardlms.min.js?v=abc',
+				'errors_endpoint'     => 'https://backend.test/api/sdk/errors/collect',
+				'backend_enabled'     => true,
+				'subscription_active' => true,
+				'refreshed_at'        => 1750000000,
+			),
 		);
-		$this->store['guardlms_credentials'] = array(
-			'apikey' => 'push-key',
-			'sdkkey' => 'glms_existing',
-		);
+		$this->store['guardlms_credentials']     = array( 'apikey' => 'push-key' );
+		$this->store['guardlms_sdk_credentials'] = array( 'sdkkey' => 'glms_existing' );
 	}
 
 	/**
@@ -232,6 +241,55 @@ final class SdkSelfTestTest extends AbstractGuardLMSTestCase {
 		$this->runHandler( array( 'GuardLMS_Realtime_Page', 'handle_selftest' ) );
 
 		$this->assertSame( array( GuardLMS_Realtime_Page::SELFTEST_ACTION ), $this->nonceChecks );
+	}
+
+	/**
+	 * The probe's only failure message is "another plugin may be deferring or
+	 * blocking it". When the plugin itself chose not to inject, that is an
+	 * accusation against an innocent third party - and the real reason is already
+	 * on screen. The handler refuses instead of sending the admin to the front
+	 * end to be misinformed.
+	 *
+	 * @dataProvider notInjectingProvider
+	 * @param array $sdk_overrides Overrides for the nested sdk array.
+	 * @return void
+	 */
+	public function test_the_selftest_handler_refuses_when_the_sdk_is_not_injected( array $sdk_overrides ): void {
+		$this->store['guardlms_settings']['sdk'] = array_merge(
+			$this->store['guardlms_settings']['sdk'],
+			$sdk_overrides
+		);
+
+		$location = $this->runHandler( array( 'GuardLMS_Realtime_Page', 'handle_selftest' ) );
+
+		// Back to the settings page, not out to the front end.
+		$this->assertStringNotContainsString( GuardLMS_Sdk_Injector::SELFTEST_FLAG, $location );
+		$this->assertStringContainsString( 'page=guardlms', $location );
+
+		$notice = $this->transients[ GuardLMS_Realtime_Page::NOTICE_TRANSIENT ];
+		$this->assertSame( 'warning', $notice['type'] );
+		$this->assertStringContainsString( 'nothing to test', $notice['message'] );
+	}
+
+	/**
+	 * @return array<string,array{0:array}>
+	 */
+	public function notInjectingProvider(): array {
+		return array(
+			// The likeliest first run of all: key fetched, box not yet ticked.
+			'admin has not opted in' => array( array( 'enabled' => false ) ),
+			'subscription expired'   => array( array( 'subscription_active' => false ) ),
+			'dashboard switch off'   => array( array( 'backend_enabled' => false ) ),
+			'no endpoint stored'     => array( array( 'errors_endpoint' => '' ) ),
+		);
+	}
+
+	public function test_the_selftest_handler_refuses_when_reporting_is_switched_off(): void {
+		$this->store['guardlms_settings']['enabled'] = false;
+
+		$location = $this->runHandler( array( 'GuardLMS_Realtime_Page', 'handle_selftest' ) );
+
+		$this->assertStringNotContainsString( GuardLMS_Sdk_Injector::SELFTEST_FLAG, $location );
 	}
 
 	// --- capability guards ----------------------------------------------------
@@ -281,6 +339,48 @@ final class SdkSelfTestTest extends AbstractGuardLMSTestCase {
 		$this->assertCount( 1, $this->requests );
 		$this->assertSame( 'fetch', json_decode( $this->requests[0]['body'], true )['action'] );
 		$this->assertSame( 5, $this->requests[0]['args']['timeout'] );
+	}
+
+	/**
+	 * The refresh handler redirects into the settings page, whose render calls
+	 * maybe_bootstrap(). On a site that has never refreshed successfully, that
+	 * fires a SECOND blocking 5s request unless this handler has already taken
+	 * the lock - so one click costs 10 seconds against a dead backend.
+	 */
+	public function test_the_refresh_handler_takes_the_bootstrap_lock(): void {
+		$this->runHandler( array( 'GuardLMS_Realtime_Page', 'handle_refresh' ) );
+
+		$this->assertArrayHasKey( GuardLMS_Sdk_Client::BOOTSTRAP_LOCK, $this->transients );
+	}
+
+	/**
+	 * The consequence, asserted end to end: after a failed refresh the following
+	 * settings-page render issues no further request.
+	 */
+	public function test_a_failed_refresh_does_not_cost_a_second_request_on_the_way_back(): void {
+		// The site this matters for: connected, never refreshed successfully, so
+		// maybe_bootstrap() would otherwise fire on the redirected-to render.
+		$this->store['guardlms_settings']['sdk']['refreshed_at'] = 0;
+
+		Functions\when( 'wp_remote_post' )->alias(
+			function ( $url, $args ) {
+				$this->requests[] = array(
+					'url'  => $url,
+					'body' => $args['body'],
+					'args' => $args,
+				);
+				return new WP_Error( 'http_request_failed', 'timed out' );
+			}
+		);
+
+		$this->runHandler( array( 'GuardLMS_Realtime_Page', 'handle_refresh' ) );
+		$this->assertCount( 1, $this->requests );
+
+		// The site still has refreshed_at === 0, so only the lock stands between
+		// it and a second blocking call on the redirected-to render.
+		$this->assertSame( 0, (int) GuardLMS_Sdk_Config::get( 'refreshed_at' ) );
+		$this->assertFalse( GuardLMS_Sdk_Client::maybe_bootstrap() );
+		$this->assertCount( 1, $this->requests );
 	}
 
 	public function test_the_refresh_handler_reports_success(): void {

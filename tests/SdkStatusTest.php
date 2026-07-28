@@ -61,7 +61,7 @@ final class SdkStatusTest extends AbstractGuardLMSTestCase {
 	public function test_a_healthy_configuration_has_no_failure_headline(): void {
 		$this->assertSame(
 			GuardLMS_Sdk_Status::STATE_OK,
-			GuardLMS_Sdk_Status::headline( $this->healthy(), 'glms_key' )
+			GuardLMS_Sdk_Status::headline( $this->healthy(), 'glms_key', true )
 		);
 	}
 
@@ -70,42 +70,42 @@ final class SdkStatusTest extends AbstractGuardLMSTestCase {
 	public function test_row_1_no_key(): void {
 		$this->assertSame(
 			GuardLMS_Sdk_Status::STATE_NO_KEY,
-			GuardLMS_Sdk_Status::headline( $this->healthy(), '' )
+			GuardLMS_Sdk_Status::headline( $this->healthy(), '', true )
 		);
 	}
 
 	public function test_row_1_treats_a_whitespace_only_key_as_missing(): void {
 		$this->assertSame(
 			GuardLMS_Sdk_Status::STATE_NO_KEY,
-			GuardLMS_Sdk_Status::headline( $this->healthy(), '   ' )
+			GuardLMS_Sdk_Status::headline( $this->healthy(), '   ', true )
 		);
 	}
 
 	public function test_row_2_backend_too_old(): void {
 		$this->assertSame(
 			GuardLMS_Sdk_Status::STATE_BACKEND_TOO_OLD,
-			GuardLMS_Sdk_Status::headline( $this->healthy( array( 'backend_supported' => false ) ), 'glms_key' )
+			GuardLMS_Sdk_Status::headline( $this->healthy( array( 'backend_supported' => false ) ), 'glms_key', true )
 		);
 	}
 
 	public function test_row_4_subscription_inactive(): void {
 		$this->assertSame(
 			GuardLMS_Sdk_Status::STATE_NO_SUBSCRIPTION,
-			GuardLMS_Sdk_Status::headline( $this->healthy( array( 'subscription_active' => false ) ), 'glms_key' )
+			GuardLMS_Sdk_Status::headline( $this->healthy( array( 'subscription_active' => false ) ), 'glms_key', true )
 		);
 	}
 
 	public function test_row_5_dashboard_master_switch_off(): void {
 		$this->assertSame(
 			GuardLMS_Sdk_Status::STATE_DASHBOARD_OFF,
-			GuardLMS_Sdk_Status::headline( $this->healthy( array( 'backend_enabled' => false ) ), 'glms_key' )
+			GuardLMS_Sdk_Status::headline( $this->healthy( array( 'backend_enabled' => false ) ), 'glms_key', true )
 		);
 	}
 
 	public function test_row_7_refresh_failed(): void {
 		$this->assertSame(
 			GuardLMS_Sdk_Status::STATE_REFRESH_FAILED,
-			GuardLMS_Sdk_Status::headline( $this->healthy( array( 'refresh_error' => 'Connection timed out' ) ), 'glms_key' )
+			GuardLMS_Sdk_Status::headline( $this->healthy( array( 'refresh_error' => 'Connection timed out' ) ), 'glms_key', true )
 		);
 	}
 
@@ -126,7 +126,7 @@ final class SdkStatusTest extends AbstractGuardLMSTestCase {
 			)
 		);
 
-		$this->assertSame( GuardLMS_Sdk_Status::STATE_BACKEND_TOO_OLD, GuardLMS_Sdk_Status::headline( $sdk, '' ) );
+		$this->assertSame( GuardLMS_Sdk_Status::STATE_BACKEND_TOO_OLD, GuardLMS_Sdk_Status::headline( $sdk, '', true ) );
 		$this->assertFalse( GuardLMS_Sdk_Status::is_section_visible( $sdk ) );
 	}
 
@@ -142,7 +142,7 @@ final class SdkStatusTest extends AbstractGuardLMSTestCase {
 			)
 		);
 
-		$this->assertSame( GuardLMS_Sdk_Status::STATE_DASHBOARD_OFF, GuardLMS_Sdk_Status::headline( $sdk, '' ) );
+		$this->assertSame( GuardLMS_Sdk_Status::STATE_DASHBOARD_OFF, GuardLMS_Sdk_Status::headline( $sdk, '', true ) );
 	}
 
 	/**
@@ -156,7 +156,7 @@ final class SdkStatusTest extends AbstractGuardLMSTestCase {
 			)
 		);
 
-		$this->assertSame( GuardLMS_Sdk_Status::STATE_NO_SUBSCRIPTION, GuardLMS_Sdk_Status::headline( $sdk, '' ) );
+		$this->assertSame( GuardLMS_Sdk_Status::STATE_NO_SUBSCRIPTION, GuardLMS_Sdk_Status::headline( $sdk, '', true ) );
 	}
 
 	/**
@@ -172,7 +172,7 @@ final class SdkStatusTest extends AbstractGuardLMSTestCase {
 			)
 		);
 
-		$this->assertSame( GuardLMS_Sdk_Status::STATE_REFRESH_FAILED, GuardLMS_Sdk_Status::headline( $sdk, '' ) );
+		$this->assertSame( GuardLMS_Sdk_Status::STATE_REFRESH_FAILED, GuardLMS_Sdk_Status::headline( $sdk, '', true ) );
 	}
 
 	// --- headline: the "never refreshed" trap --------------------------------
@@ -191,7 +191,7 @@ final class SdkStatusTest extends AbstractGuardLMSTestCase {
 		$this->assertFalse( $sdk['backend_enabled'] );
 		$this->assertFalse( $sdk['subscription_active'] );
 
-		$this->assertSame( GuardLMS_Sdk_Status::STATE_NO_KEY, GuardLMS_Sdk_Status::headline( $sdk, '' ) );
+		$this->assertSame( GuardLMS_Sdk_Status::STATE_NO_KEY, GuardLMS_Sdk_Status::headline( $sdk, '', true ) );
 	}
 
 	/**
@@ -205,7 +205,7 @@ final class SdkStatusTest extends AbstractGuardLMSTestCase {
 			)
 		);
 
-		$this->assertSame( GuardLMS_Sdk_Status::STATE_DASHBOARD_OFF, GuardLMS_Sdk_Status::headline( $sdk, 'glms_key' ) );
+		$this->assertSame( GuardLMS_Sdk_Status::STATE_DASHBOARD_OFF, GuardLMS_Sdk_Status::headline( $sdk, 'glms_key', true ) );
 	}
 
 	// --- advisories -----------------------------------------------------------
@@ -222,7 +222,7 @@ final class SdkStatusTest extends AbstractGuardLMSTestCase {
 			)
 		);
 
-		$this->assertSame( GuardLMS_Sdk_Status::STATE_REFRESH_FAILED, GuardLMS_Sdk_Status::headline( $sdk, 'glms_key' ) );
+		$this->assertSame( GuardLMS_Sdk_Status::STATE_REFRESH_FAILED, GuardLMS_Sdk_Status::headline( $sdk, 'glms_key', true ) );
 		$this->assertContains( GuardLMS_Sdk_Status::ADVISORY_NO_ANALYTICS, GuardLMS_Sdk_Status::advisories( $sdk ) );
 	}
 
@@ -238,7 +238,7 @@ final class SdkStatusTest extends AbstractGuardLMSTestCase {
 			)
 		);
 
-		$this->assertSame( GuardLMS_Sdk_Status::STATE_NO_SUBSCRIPTION, GuardLMS_Sdk_Status::headline( $sdk, 'glms_key' ) );
+		$this->assertSame( GuardLMS_Sdk_Status::STATE_NO_SUBSCRIPTION, GuardLMS_Sdk_Status::headline( $sdk, 'glms_key', true ) );
 		$this->assertContains( GuardLMS_Sdk_Status::ADVISORY_DOMAIN_MISMATCH, GuardLMS_Sdk_Status::advisories( $sdk ) );
 	}
 
@@ -274,7 +274,7 @@ final class SdkStatusTest extends AbstractGuardLMSTestCase {
 	// --- should_inject --------------------------------------------------------
 
 	public function test_should_inject_on_a_healthy_enabled_site(): void {
-		$this->assertTrue( GuardLMS_Sdk_Status::should_inject( $this->healthy(), 'glms_key' ) );
+		$this->assertTrue( GuardLMS_Sdk_Status::should_inject( $this->healthy(), 'glms_key', true ) );
 	}
 
 	/**
@@ -286,7 +286,7 @@ final class SdkStatusTest extends AbstractGuardLMSTestCase {
 	 * @return void
 	 */
 	public function test_should_inject_is_false_for_each_suppression_condition( array $overrides, string $key ): void {
-		$this->assertFalse( GuardLMS_Sdk_Status::should_inject( $this->healthy( $overrides ), $key ) );
+		$this->assertFalse( GuardLMS_Sdk_Status::should_inject( $this->healthy( $overrides ), $key, true ) );
 	}
 
 	/**
@@ -313,8 +313,151 @@ final class SdkStatusTest extends AbstractGuardLMSTestCase {
 	public function test_a_failed_refresh_does_not_stop_injection(): void {
 		$sdk = $this->healthy( array( 'refresh_error' => 'Connection timed out' ) );
 
-		$this->assertSame( GuardLMS_Sdk_Status::STATE_REFRESH_FAILED, GuardLMS_Sdk_Status::headline( $sdk, 'glms_key' ) );
-		$this->assertTrue( GuardLMS_Sdk_Status::should_inject( $sdk, 'glms_key' ) );
+		$this->assertSame( GuardLMS_Sdk_Status::STATE_REFRESH_FAILED, GuardLMS_Sdk_Status::headline( $sdk, 'glms_key', true ) );
+		$this->assertTrue( GuardLMS_Sdk_Status::should_inject( $sdk, 'glms_key', true ) );
+	}
+
+	// --- the master toggle (F2) ----------------------------------------------
+
+	/**
+	 * The plugin-wide reporting toggle suppresses injection. It used to be
+	 * checked only inside the injector, so the status chain never saw it and
+	 * kept returning STATE_OK - the settings page printed "monitoring is active"
+	 * while the front end enqueued nothing at all, with no backend involved.
+	 */
+	public function test_the_master_reporting_toggle_suppresses_injection(): void {
+		$this->assertFalse( GuardLMS_Sdk_Status::should_inject( $this->healthy(), 'glms_key', false ) );
+	}
+
+	public function test_the_master_reporting_toggle_has_its_own_headline(): void {
+		$this->assertSame(
+			GuardLMS_Sdk_Status::STATE_REPORTING_OFF,
+			GuardLMS_Sdk_Status::headline( $this->healthy(), 'glms_key', false )
+		);
+	}
+
+	/**
+	 * It outranks the backend-side rows, whose sentences would send an admin to
+	 * the GuardLMS dashboard when the switch they need is in this plugin.
+	 */
+	public function test_reporting_off_outranks_the_backend_rows(): void {
+		$sdk = $this->healthy(
+			array(
+				'backend_enabled'     => false,
+				'subscription_active' => false,
+				'refresh_error'       => 'Connection timed out',
+			)
+		);
+
+		$this->assertSame(
+			GuardLMS_Sdk_Status::STATE_REPORTING_OFF,
+			GuardLMS_Sdk_Status::headline( $sdk, '', false )
+		);
+	}
+
+	/**
+	 * Row 2 still wins: a hidden section cannot render this sentence either.
+	 */
+	public function test_backend_too_old_still_outranks_reporting_off(): void {
+		$sdk = $this->healthy( array( 'backend_supported' => false ) );
+
+		$this->assertSame(
+			GuardLMS_Sdk_Status::STATE_BACKEND_TOO_OLD,
+			GuardLMS_Sdk_Status::headline( $sdk, 'glms_key', false )
+		);
+	}
+
+	// --- the STATE_OK invariant (F2) -----------------------------------------
+
+	/**
+	 * THE INVARIANT. STATE_OK is the state the settings page turns into "real-time
+	 * monitoring is active on this site", so it must never co-occur with an
+	 * injection that is being skipped. Exhaustive over every combination of the
+	 * inputs that feed the decision - 2^7 = 128 configurations - because the bug
+	 * this replaces was precisely a condition that lived in one function and not
+	 * the other.
+	 */
+	public function test_state_ok_can_never_co_occur_with_suppressed_injection(): void {
+		$checked = 0;
+
+		foreach ( array( true, false ) as $reporting ) {
+			foreach ( array( true, false ) as $supported ) {
+				foreach ( array( true, false ) as $backend ) {
+					foreach ( array( true, false ) as $subscription ) {
+						foreach ( array( true, false ) as $has_url ) {
+							foreach ( array( true, false ) as $has_endpoint ) {
+								foreach ( array( 'glms_key', '' ) as $key ) {
+									$sdk = $this->healthy(
+										array(
+											// The admin's own opt-in is held ON, because
+											// STATE_OK with it off legitimately means
+											// "ready, switch it on below".
+											'enabled'             => true,
+											'backend_supported'   => $supported,
+											'backend_enabled'     => $backend,
+											'subscription_active' => $subscription,
+											'sdk_url'             => $has_url ? 'https://cdn.test/g.js' : '',
+											'errors_endpoint'     => $has_endpoint ? 'https://api.test/c' : '',
+										)
+									);
+
+									++$checked;
+
+									if ( GuardLMS_Sdk_Status::STATE_OK !== GuardLMS_Sdk_Status::headline( $sdk, $key, $reporting ) ) {
+										continue;
+									}
+
+									$this->assertTrue(
+										GuardLMS_Sdk_Status::should_inject( $sdk, $key, $reporting ),
+										'STATE_OK was returned while injection is suppressed.'
+									);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		$this->assertSame( 128, $checked );
+	}
+
+	/**
+	 * The catch-all fires rather than STATE_OK when a precondition is unmet that
+	 * no specific row explains - here an endpoint that arrived as an explicit
+	 * null, or was rejected for not being https.
+	 */
+	public function test_a_missing_endpoint_reports_not_configured_not_ok(): void {
+		$sdk = $this->healthy( array( 'errors_endpoint' => '' ) );
+
+		$this->assertSame(
+			GuardLMS_Sdk_Status::STATE_NOT_CONFIGURED,
+			GuardLMS_Sdk_Status::headline( $sdk, 'glms_key', true )
+		);
+		$this->assertFalse( GuardLMS_Sdk_Status::should_inject( $sdk, 'glms_key', true ) );
+	}
+
+	public function test_a_missing_sdk_url_reports_not_configured_not_ok(): void {
+		$sdk = $this->healthy( array( 'sdk_url' => '' ) );
+
+		$this->assertSame(
+			GuardLMS_Sdk_Status::STATE_NOT_CONFIGURED,
+			GuardLMS_Sdk_Status::headline( $sdk, 'glms_key', true )
+		);
+	}
+
+	/**
+	 * The converse is NOT an invariant and must not become one: a failed refresh
+	 * leaves a working key and endpoint, so row 7 co-exists with live injection.
+	 */
+	public function test_a_non_ok_headline_may_still_inject(): void {
+		$sdk = $this->healthy( array( 'refresh_error' => 'timed out' ) );
+
+		$this->assertSame(
+			GuardLMS_Sdk_Status::STATE_REFRESH_FAILED,
+			GuardLMS_Sdk_Status::headline( $sdk, 'glms_key', true )
+		);
+		$this->assertTrue( GuardLMS_Sdk_Status::should_inject( $sdk, 'glms_key', true ) );
 	}
 
 	// --- should_send_analytics ------------------------------------------------

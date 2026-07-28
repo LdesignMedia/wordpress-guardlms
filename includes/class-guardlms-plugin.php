@@ -74,6 +74,10 @@ class GuardLMS_Plugin {
 		add_action( 'admin_menu', array( 'GuardLMS_Settings', 'register' ) );
 		add_action( 'admin_init', array( 'GuardLMS_Settings', 'register' ) );
 		add_action( 'admin_init', array( 'GuardLMS_Settings', 'maybe_notice' ) );
+
+		// Purge page caches AFTER the settings write lands, never during
+		// sanitize() - see GuardLMS_Settings::maybe_purge_on_toggle().
+		add_action( 'update_option_' . GuardLMS_Options::OPTION, array( 'GuardLMS_Settings', 'maybe_purge_on_toggle' ), 10, 2 );
 		add_action( 'admin_post_guardlms_push_now', array( 'GuardLMS_Settings', 'handle_push_now' ) );
 
 		// Phase 2 keyless Connect: REST callback and the admin-post actions. The

@@ -56,7 +56,24 @@ final class SdkConfigTest extends AbstractGuardLMSTestCase {
 				return true;
 			}
 		);
-		Functions\when( 'esc_url_raw' )->returnArg( 1 );
+		Functions\when( 'delete_option' )->alias(
+			function ( $name ) {
+				unset( $this->store[ $name ] );
+				return true;
+			}
+		);
+		// Honour the protocol allowlist, as the real esc_url_raw() does: a scheme
+		// outside $protocols yields ''. A returnArg() stub would silently make
+		// every https-only assertion below pass against an http URL.
+		Functions\when( 'esc_url_raw' )->alias(
+			static function ( $url, $protocols = null ) {
+				$scheme = strtolower( (string) parse_url( (string) $url, PHP_URL_SCHEME ) );
+				if ( is_array( $protocols ) && ! in_array( $scheme, $protocols, true ) ) {
+					return '';
+				}
+				return $url;
+			}
+		);
 		Functions\when( 'sanitize_text_field' )->returnArg( 1 );
 	}
 
@@ -244,7 +261,7 @@ final class SdkConfigTest extends AbstractGuardLMSTestCase {
 	}
 
 	/**
-	 * AC D5. The key goes to guardlms_credentials and NOWHERE else. Asserted on
+	 * AC D5. The key goes to its own credentials option and NOWHERE else. Asserted on
 	 * the raw stored option values, not through an accessor that could be lying.
 	 */
 	public function test_store_payload_routes_the_key_to_credentials_and_never_to_settings(): void {
@@ -252,7 +269,7 @@ final class SdkConfigTest extends AbstractGuardLMSTestCase {
 
 		GuardLMS_Sdk_Config::store_payload( $payload );
 
-		$this->assertSame( $payload['key'], $this->store['guardlms_credentials']['sdkkey'] );
+		$this->assertSame( $payload['key'], $this->store['guardlms_sdk_credentials']['sdkkey'] );
 
 		// The raw settings option must not contain the key anywhere, at any depth.
 		$serialized = wp_json_encode_fallback( $this->store['guardlms_settings'] );
@@ -265,23 +282,23 @@ final class SdkConfigTest extends AbstractGuardLMSTestCase {
 	 * site's monitoring on its own daily cron run.
 	 */
 	public function test_store_payload_without_a_key_leaves_the_stored_key_intact(): void {
-		$this->store['guardlms_credentials'] = array( 'sdkkey' => 'glms_existing' );
+		$this->store['guardlms_sdk_credentials'] = array( 'sdkkey' => 'glms_existing' );
 
 		$payload = $this->payload();
 		unset( $payload['key'] );
 		GuardLMS_Sdk_Config::store_payload( $payload );
 
-		$this->assertSame( 'glms_existing', $this->store['guardlms_credentials']['sdkkey'] );
+		$this->assertSame( 'glms_existing', $this->store['guardlms_sdk_credentials']['sdkkey'] );
 	}
 
 	public function test_store_payload_with_a_null_key_leaves_the_stored_key_intact(): void {
-		$this->store['guardlms_credentials'] = array( 'sdkkey' => 'glms_existing' );
+		$this->store['guardlms_sdk_credentials'] = array( 'sdkkey' => 'glms_existing' );
 
 		$payload        = $this->payload();
 		$payload['key'] = null;
 		GuardLMS_Sdk_Config::store_payload( $payload );
 
-		$this->assertSame( 'glms_existing', $this->store['guardlms_credentials']['sdkkey'] );
+		$this->assertSame( 'glms_existing', $this->store['guardlms_sdk_credentials']['sdkkey'] );
 	}
 
 	/**
@@ -365,6 +382,56 @@ final class SdkConfigTest extends AbstractGuardLMSTestCase {
 		GuardLMS_Sdk_Config::store_payload( $payload );
 
 		$this->assertSame( array(), GuardLMS_Sdk_Config::get( 'allowed_domains' ) );
+	}
+
+	// --- URL validation (F7) --------------------------------------------------
+
+	/**
+	 * An http:// address is worse than useless: a browser on an HTTPS site blocks
+	 * it as mixed content, so the bundle never loads and no error surfaces
+	 * anywhere the plugin can see. Storing it would leave the settings page
+	 * claiming monitoring is active while nothing is ever collected.
+	 */
+	public function test_store_payload_rejects_a_non_https_sdk_url(): void {
+		$payload            = $this->payload();
+		$payload['sdk_url'] = 'http://app.guardlms.test/sdk/guardlms.min.js?v=abc';
+
+		GuardLMS_Sdk_Config::store_payload( $payload );
+
+		$this->assertSame( '', GuardLMS_Sdk_Config::get( 'sdk_url' ) );
+	}
+
+	/**
+	 * And it says so, rather than leaving an empty value with no explanation.
+	 */
+	public function test_a_rejected_url_records_an_explanatory_error(): void {
+		$payload                    = $this->payload();
+		$payload['errors_endpoint'] = 'http://app.guardlms.test/api/sdk/errors/collect';
+
+		GuardLMS_Sdk_Config::store_payload( $payload );
+
+		$this->assertStringContainsString( 'HTTPS', GuardLMS_Sdk_Config::get( 'refresh_error' ) );
+	}
+
+	public function test_an_all_https_payload_records_no_error(): void {
+		GuardLMS_Sdk_Config::store_payload( $this->payload() );
+
+		$this->assertSame( '', GuardLMS_Sdk_Config::get( 'refresh_error' ) );
+	}
+
+	/**
+	 * An explicit null leaves the value empty while refreshed_at is still
+	 * stamped. That combination used to read as a healthy site, so the status
+	 * chain now has to catch it - here we pin the storage half of that.
+	 */
+	public function test_an_explicitly_null_url_leaves_the_value_empty(): void {
+		$payload            = $this->payload();
+		$payload['sdk_url'] = null;
+
+		GuardLMS_Sdk_Config::store_payload( $payload );
+
+		$this->assertSame( '', GuardLMS_Sdk_Config::get( 'sdk_url' ) );
+		$this->assertGreaterThan( 0, GuardLMS_Sdk_Config::get( 'refreshed_at' ) );
 	}
 
 	// --- record_error / mark_unsupported / clear ------------------------------

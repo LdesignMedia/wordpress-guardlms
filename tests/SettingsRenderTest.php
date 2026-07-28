@@ -152,7 +152,7 @@ final class SettingsRenderTest extends AbstractGuardLMSTestCase {
 		$this->store['guardlms_credentials'] = array( 'apikey' => 'push-key' );
 
 		if ( '' !== $sdk_key ) {
-			$this->store['guardlms_credentials']['sdkkey'] = $sdk_key;
+			$this->store['guardlms_sdk_credentials'] = array( 'sdkkey' => $sdk_key );
 		}
 	}
 
@@ -360,7 +360,7 @@ final class SettingsRenderTest extends AbstractGuardLMSTestCase {
 
 		$this->assertStringNotContainsString( 'not being collected', $html );
 		$this->assertTrue(
-			GuardLMS_Sdk_Status::should_inject( GuardLMS_Sdk_Config::all(), 'glms_testkey' )
+			GuardLMS_Sdk_Status::should_inject( GuardLMS_Sdk_Config::all(), 'glms_testkey', true )
 		);
 	}
 
@@ -484,25 +484,42 @@ final class SettingsRenderTest extends AbstractGuardLMSTestCase {
 	}
 
 	/**
+	 * Drive the purge hook the way WordPress does, with the old and new values.
+	 *
+	 * @param bool $was Previous sdk.enabled.
+	 * @param bool $now New sdk.enabled.
+	 * @return void
+	 */
+	private function firePurgeHook( bool $was, bool $now ): void {
+		Functions\when( 'w3tc_flush_all' )->alias(
+			function () {
+				++$this->purges;
+			}
+		);
+		Functions\when( 'litespeed_purge_all' )->justReturn( null );
+		Functions\when( 'rocket_clean_domain' )->justReturn( null );
+		Functions\when( 'wp_cache_clear_cache' )->justReturn( null );
+
+		GuardLMS_Settings::maybe_purge_on_toggle(
+			array( 'sdk' => array( 'enabled' => $was ) ),
+			array( 'sdk' => array( 'enabled' => $now ) )
+		);
+	}
+
+	/**
 	 * AC D6. Flipping the toggle purges page caches exactly once - the single
 	 * most common cause of "I turned it on and nothing happened" is a cached
 	 * page still serving pre-toggle HTML.
 	 */
 	public function test_d6_switching_the_toggle_on_purges_page_caches_once(): void {
-		$this->seed( array( 'enabled' => false ) );
+		$this->firePurgeHook( false, true );
 
-		$clean = $this->save( array( 'sdk' => array( 'enabled' => '1' ) ) );
-
-		$this->assertTrue( $clean['sdk']['enabled'] );
 		$this->assertSame( 1, $this->purges );
 	}
 
 	public function test_d6_switching_the_toggle_off_also_purges_once(): void {
-		$this->seed( array( 'enabled' => true ) );
+		$this->firePurgeHook( true, false );
 
-		$clean = $this->save( array( 'sdk' => array( 'enabled' => '0' ) ) );
-
-		$this->assertFalse( $clean['sdk']['enabled'] );
 		$this->assertSame( 1, $this->purges );
 	}
 
@@ -511,10 +528,62 @@ final class SettingsRenderTest extends AbstractGuardLMSTestCase {
 	 * whole page cache on every settings save is a real performance event.
 	 */
 	public function test_saving_without_changing_the_toggle_does_not_purge(): void {
-		$this->seed( array( 'enabled' => true ) );
+		$this->firePurgeHook( true, true );
 
-		$this->save( array( 'sdk' => array( 'enabled' => '1' ) ) );
+		$this->assertSame( 0, $this->purges );
+	}
 
+	/**
+	 * The purge runs on `update_option_guardlms_settings`, NOT inside sanitize().
+	 * sanitize() runs before the write, so purging there empties the cache while
+	 * the old value is still live and any request in that window re-caches
+	 * pre-toggle HTML - the purge would run and change nothing.
+	 */
+	public function test_sanitize_itself_never_purges(): void {
+		$this->seed( array( 'enabled' => false ) );
+
+		$clean = $this->save( array( 'sdk' => array( 'enabled' => '1' ) ) );
+
+		$this->assertTrue( $clean['sdk']['enabled'] );
+		$this->assertSame( 0, $this->purges );
+	}
+
+	/**
+	 * The hook is registered with two arguments. Registered with the default
+	 * one, $value would arrive as the OLD value and every toggle would look
+	 * unchanged, so the purge would silently never fire.
+	 */
+	public function test_the_purge_hook_is_registered_with_both_values(): void {
+		$source = file_get_contents( GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-plugin.php' );
+
+		$this->assertMatchesRegularExpression(
+			"/add_action\(\s*'update_option_'\s*\.\s*GuardLMS_Options::OPTION,\s*array\(\s*'GuardLMS_Settings',\s*'maybe_purge_on_toggle'\s*\),\s*10,\s*2\s*\)/",
+			$source
+		);
+	}
+
+	/**
+	 * A first-ever write has no `sdk` key in the old value at all.
+	 */
+	public function test_the_purge_hook_tolerates_a_missing_sdk_array(): void {
+		Functions\when( 'w3tc_flush_all' )->alias(
+			function () {
+				++$this->purges;
+			}
+		);
+		Functions\when( 'litespeed_purge_all' )->justReturn( null );
+		Functions\when( 'rocket_clean_domain' )->justReturn( null );
+		Functions\when( 'wp_cache_clear_cache' )->justReturn( null );
+
+		GuardLMS_Settings::maybe_purge_on_toggle(
+			array( 'enabled' => true ),
+			array( 'sdk' => array( 'enabled' => true ) )
+		);
+
+		$this->assertSame( 1, $this->purges );
+
+		$this->purges = 0;
+		GuardLMS_Settings::maybe_purge_on_toggle( false, array( 'enabled' => true ) );
 		$this->assertSame( 0, $this->purges );
 	}
 

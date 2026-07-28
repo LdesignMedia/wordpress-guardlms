@@ -35,7 +35,7 @@ defined( 'ABSPATH' ) || exit;
  * `guardlms_settings` option, because GuardLMS_Sdk_Injector reads it on every
  * front-end page. The SDK key itself is the one exception: it is a bearer
  * credential for a write endpoint, so it lives in the non-autoloaded
- * `guardlms_credentials` option (GuardLMS_Credentials::get_sdk_key()) and is
+ * `guardlms_sdk_credentials` option (GuardLMS_Credentials::get_sdk_key()) and is
  * never written into `guardlms_settings`. That keeps it out of everything that
  * dumps the settings option wholesale - Site Health, `wp option get`, and the
  * staging/migration plugins that copy autoloaded options.
@@ -156,15 +156,35 @@ class GuardLMS_Sdk_Config {
 			'backend_supported' => true,
 		);
 
-		$strings = array(
+		// HTTPS ONLY. An http:// URL is worse than useless: a browser on an HTTPS
+		// site blocks it as mixed content, so the bundle never loads and no error
+		// is ever raised anywhere the plugin can see it. Rejecting it here leaves
+		// the value empty, which blocks_injection() reports as "not configured"
+		// instead of letting the settings page claim monitoring is active. The
+		// base URL setting is already https-only for the same reason.
+		$urls     = array(
 			'sdk_url'            => 'sdk_url',
 			'errors_endpoint'    => 'errors_endpoint',
 			'analytics_endpoint' => 'analytics_endpoint',
 		);
-		foreach ( $strings as $from => $to ) {
-			if ( isset( $payload[ $from ] ) ) {
-				$values[ $to ] = esc_url_raw( trim( (string) $payload[ $from ] ) );
+		$rejected = array();
+		foreach ( $urls as $from => $to ) {
+			if ( ! isset( $payload[ $from ] ) ) {
+				continue;
 			}
+
+			$raw   = trim( (string) $payload[ $from ] );
+			$clean = ( '' === $raw ) ? '' : esc_url_raw( $raw, array( 'https' ) );
+
+			if ( '' !== $raw && '' === $clean ) {
+				$rejected[] = $from;
+			}
+
+			$values[ $to ] = $clean;
+		}
+
+		if ( ! empty( $rejected ) ) {
+			$values['refresh_error'] = __( 'GuardLMS returned a real-time address that is not HTTPS, so it was not stored. A browser would refuse to load it.', 'guardlms' );
 		}
 
 		if ( isset( $payload['key_prefix'] ) ) {

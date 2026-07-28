@@ -338,7 +338,7 @@ final class SdkClientTest extends AbstractGuardLMSTestCase {
 
 	public function test_revoke_with_a_stored_key_does_issue_the_request(): void {
 		$this->seedConnected();
-		$this->store['guardlms_credentials']['sdkkey'] = 'glms_live';
+		$this->store['guardlms_sdk_credentials'] = array( 'sdkkey' => 'glms_live' );
 		$this->response                                = array(
 			'code' => 200,
 			'body' => (string) json_encode( array( 'data' => array( 'key_status' => 'revoked' ) ) ),
@@ -486,7 +486,7 @@ final class SdkClientTest extends AbstractGuardLMSTestCase {
 	}
 
 	/**
-	 * AC D5. The key lands in guardlms_credentials and never in guardlms_settings,
+	 * AC D5. The key lands in the SDK credentials option and never in guardlms_settings,
 	 * asserted on the raw stored option values.
 	 */
 	public function test_the_key_never_reaches_the_settings_option(): void {
@@ -499,7 +499,7 @@ final class SdkClientTest extends AbstractGuardLMSTestCase {
 		GuardLMS_Sdk_Client::resolve( 'fetch' );
 
 		$key = 'glms_' . str_repeat( 'a', 56 );
-		$this->assertSame( $key, $this->store['guardlms_credentials']['sdkkey'] );
+		$this->assertSame( $key, $this->store['guardlms_sdk_credentials']['sdkkey'] );
 		$this->assertStringNotContainsString( $key, (string) json_encode( $this->store['guardlms_settings'] ) );
 	}
 

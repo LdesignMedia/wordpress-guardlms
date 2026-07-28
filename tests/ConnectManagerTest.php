@@ -485,10 +485,8 @@ final class ConnectManagerTest extends AbstractGuardLMSTestCase {
 	 * consequence: the push key was still readable when the request went out.
 	 */
 	public function test_disconnect_revokes_before_deleting_the_push_key(): void {
-		$this->store['guardlms_credentials'] = array(
-			'apikey' => 'push-key-abc',
-			'sdkkey' => 'glms_live',
-		);
+		$this->store['guardlms_credentials']     = array( 'apikey' => 'push-key-abc' );
+			$this->store['guardlms_sdk_credentials'] = array( 'sdkkey' => 'glms_live' );
 		$this->seedSettings( array( 'connectedat' => 1700000000 ) );
 
 		$seen = array();
@@ -536,10 +534,8 @@ final class ConnectManagerTest extends AbstractGuardLMSTestCase {
 	 * admin unable to disconnect.
 	 */
 	public function test_disconnect_completes_when_the_revoke_call_fails(): void {
-		$this->store['guardlms_credentials'] = array(
-			'apikey' => 'push-key-abc',
-			'sdkkey' => 'glms_live',
-		);
+		$this->store['guardlms_credentials']     = array( 'apikey' => 'push-key-abc' );
+			$this->store['guardlms_sdk_credentials'] = array( 'sdkkey' => 'glms_live' );
 		$this->seedSettings(
 			array(
 				'connectedat' => 1700000000,
@@ -616,7 +612,7 @@ final class ConnectManagerTest extends AbstractGuardLMSTestCase {
 
 		// The key went to credentials, beside (not over) the push key.
 		$this->assertSame( 'push-key-abc', $this->store['guardlms_credentials']['apikey'] );
-		$this->assertSame( 'glms_fromexchange', $this->store['guardlms_credentials']['sdkkey'] );
+		$this->assertSame( 'glms_fromexchange', $this->store['guardlms_sdk_credentials']['sdkkey'] );
 
 		// The rest went to the nested settings array.
 		$sdk = $this->settings()['sdk'];

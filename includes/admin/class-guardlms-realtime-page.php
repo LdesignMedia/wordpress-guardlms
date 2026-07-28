@@ -94,8 +94,10 @@ class GuardLMS_Realtime_Page {
 			return;
 		}
 
-		$sdk_key  = GuardLMS_Credentials::get_sdk_key();
-		$headline = GuardLMS_Sdk_Status::headline( $sdk, $sdk_key );
+		$sdk_key   = GuardLMS_Credentials::get_sdk_key();
+		$reporting = (bool) GuardLMS_Options::get( 'enabled' );
+		$headline  = GuardLMS_Sdk_Status::headline( $sdk, $sdk_key, $reporting );
+		$injecting = GuardLMS_Sdk_Status::should_inject( $sdk, $sdk_key, $reporting );
 		?>
 		<hr>
 		<h2><?php esc_html_e( 'Real-time monitoring', 'guardlms' ); ?></h2>
@@ -104,20 +106,21 @@ class GuardLMS_Realtime_Page {
 		</p>
 
 		<?php
-		self::render_headline( $headline, $sdk );
+		self::render_headline( $headline, $sdk, $injecting );
 		self::render_advisories( $sdk );
 		self::render_form( $sdk, $headline );
-		self::render_buttons( $sdk_key );
+		self::render_buttons( $sdk_key, $injecting );
 	}
 
 	/**
 	 * Render exactly ONE headline sentence, chosen by the §5.3 precedence chain.
 	 *
-	 * @param string $headline One of the GuardLMS_Sdk_Status::STATE_* constants.
-	 * @param array  $sdk      Effective real-time configuration.
+	 * @param string $headline  One of the GuardLMS_Sdk_Status::STATE_* constants.
+	 * @param array  $sdk       Effective real-time configuration.
+	 * @param bool   $injecting Whether the front end is actually injecting the SDK.
 	 * @return void
 	 */
-	private static function render_headline( string $headline, array $sdk ): void {
+	private static function render_headline( string $headline, array $sdk, bool $injecting ): void {
 		if ( GuardLMS_Sdk_Status::STATE_OK === $headline ) {
 			if ( empty( $sdk['enabled'] ) ) {
 				self::notice(
@@ -127,7 +130,35 @@ class GuardLMS_Realtime_Page {
 				return;
 			}
 
+			// Belt to the status chain's braces. The chain already guarantees
+			// STATE_OK implies injection, but this is the one sentence a site
+			// owner will trust without checking, so it is gated on the predicate
+			// itself rather than on a state that is supposed to imply it.
+			if ( ! $injecting ) {
+				self::notice(
+					'warning',
+					__( 'Real-time monitoring is switched on but is not running on this site. Use Refresh now, and check that GuardLMS reporting is enabled.', 'guardlms' )
+				);
+				return;
+			}
+
 			self::notice( 'success', __( 'Real-time monitoring is active on this site.', 'guardlms' ) );
+			return;
+		}
+
+		if ( GuardLMS_Sdk_Status::STATE_REPORTING_OFF === $headline ) {
+			self::notice(
+				'warning',
+				__( 'GuardLMS reporting is switched off for this site, so real-time monitoring is not running. Re-enable it in the advanced settings.', 'guardlms' )
+			);
+			return;
+		}
+
+		if ( GuardLMS_Sdk_Status::STATE_NOT_CONFIGURED === $headline ) {
+			self::notice(
+				'warning',
+				__( 'Real-time monitoring is not fully configured yet, so nothing is being collected. Use Refresh now to fetch the settings again.', 'guardlms' )
+			);
 			return;
 		}
 
@@ -220,15 +251,30 @@ class GuardLMS_Realtime_Page {
 			$allowed = is_array( $sdk['allowed_domains'] ) ? $sdk['allowed_domains'] : array();
 			$host    = (string) wp_parse_url( home_url(), PHP_URL_HOST );
 
-			self::notice(
-				'warning',
-				sprintf(
-					/* translators: 1: comma-separated allowed hostnames, 2: this site's hostname. */
-					__( 'GuardLMS only accepts data from %1$s; this site reports as %2$s. Update Allowed domains in the GuardLMS dashboard.', 'guardlms' ),
-					implode( ', ', $allowed ),
-					$host
-				)
-			);
+			if ( empty( $allowed ) ) {
+				// A mismatch with nothing to name it against. Printing the usual
+				// sentence here renders "only accepts data from ; this site
+				// reports as example.com", which reads as a plugin bug and tells
+				// the admin nothing about where to look.
+				self::notice(
+					'warning',
+					sprintf(
+						/* translators: %s: this site's hostname. */
+						__( 'GuardLMS is not accepting data from %s. Check Allowed domains in the GuardLMS dashboard.', 'guardlms' ),
+						$host
+					)
+				);
+			} else {
+				self::notice(
+					'warning',
+					sprintf(
+						/* translators: 1: comma-separated allowed hostnames, 2: this site's hostname. */
+						__( 'GuardLMS only accepts data from %1$s; this site reports as %2$s. Update Allowed domains in the GuardLMS dashboard.', 'guardlms' ),
+						implode( ', ', $allowed ),
+						$host
+					)
+				);
+			}
 		}
 	}
 
@@ -287,10 +333,11 @@ class GuardLMS_Realtime_Page {
 	/**
 	 * Render the Refresh / Send a test error / Replace SDK key buttons.
 	 *
-	 * @param string $sdk_key The stored SDK key ('' when none).
+	 * @param string $sdk_key   The stored SDK key ('' when none).
+	 * @param bool   $injecting Whether the front end is actually injecting the SDK.
 	 * @return void
 	 */
-	private static function render_buttons( string $sdk_key ): void {
+	private static function render_buttons( string $sdk_key, bool $injecting ): void {
 		$action_url = admin_url( 'admin-post.php' );
 		?>
 		<div style="margin-top:1em">
@@ -302,7 +349,8 @@ class GuardLMS_Realtime_Page {
 				?>
 			</form>
 
-			<?php if ( '' !== $sdk_key ) : ?>
+			<?php if ( $injecting ) : ?>
+				<?php // Offered only while the SDK is genuinely on the page: the probe's only failure message blames another plugin, which is a fabricated accusation whenever the plugin itself chose not to inject. ?>
 				<form action="<?php echo esc_url( $action_url ); ?>" method="post" style="display:inline-block;margin-left:8px">
 					<input type="hidden" name="action" value="<?php echo esc_attr( self::SELFTEST_ACTION ); ?>">
 					<?php
@@ -310,7 +358,9 @@ class GuardLMS_Realtime_Page {
 					submit_button( __( 'Send a test error', 'guardlms' ), 'secondary', 'guardlms_sdk_selftest_submit', false );
 					?>
 				</form>
+			<?php endif; ?>
 
+			<?php if ( '' !== $sdk_key ) : ?>
 				<form action="<?php echo esc_url( $action_url ); ?>" method="post" style="display:inline-block;margin-left:8px"
 					onsubmit="return confirm(<?php echo esc_attr( wp_json_encode( __( 'This replaces the key this site currently serves. Pages cached before the change keep sending the old key until the cache clears. Continue?', 'guardlms' ) ) ); ?>);">
 					<input type="hidden" name="action" value="<?php echo esc_attr( self::ROTATE_ACTION ); ?>">
@@ -331,6 +381,16 @@ class GuardLMS_Realtime_Page {
 	 */
 	public static function handle_refresh(): void {
 		self::guard( self::REFRESH_ACTION );
+
+		// Take the bootstrap lock before refreshing. This handler redirects into
+		// the settings page, whose render calls maybe_bootstrap(); without the
+		// lock a site that has never refreshed successfully issues a SECOND 5s
+		// request on the way back, so one click costs 10s against a dead backend.
+		set_transient(
+			GuardLMS_Sdk_Client::BOOTSTRAP_LOCK,
+			1,
+			GuardLMS_Sdk_Client::BOOTSTRAP_LOCK_TTL
+		);
 
 		$result = GuardLMS_Sdk_Client::resolve( 'fetch', GuardLMS_Sdk_Client::INTERACTIVE_TIMEOUT );
 
@@ -357,6 +417,19 @@ class GuardLMS_Realtime_Page {
 	 */
 	public static function handle_selftest(): void {
 		self::guard( self::SELFTEST_ACTION );
+
+		// Refuse when the SDK is not on the page. The probe can only report
+		// "another plugin may be deferring or blocking it", which is a
+		// fabricated accusation whenever the plugin itself chose not to inject -
+		// and the real reason is already rendered above this button.
+		$sdk = GuardLMS_Sdk_Config::all();
+		if ( ! GuardLMS_Sdk_Status::should_inject( $sdk, GuardLMS_Credentials::get_sdk_key(), (bool) GuardLMS_Options::get( 'enabled' ) ) ) {
+			self::notify(
+				'warning',
+				__( 'Real-time monitoring is not running on this site yet, so there is nothing to test. The status above explains why.', 'guardlms' )
+			);
+			self::redirect_back();
+		}
 
 		wp_safe_redirect(
 			add_query_arg( array( GuardLMS_Sdk_Injector::SELFTEST_FLAG => 1 ), home_url( '/' ) )

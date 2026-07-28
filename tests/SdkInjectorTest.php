@@ -192,11 +192,10 @@ final class SdkInjectorTest extends AbstractGuardLMSTestCase {
 			),
 		);
 
+		$this->store['guardlms_credentials'] = array( 'apikey' => 'push-key' );
+
 		if ( '' !== $sdk_key ) {
-			$this->store['guardlms_credentials'] = array(
-				'apikey' => 'push-key',
-				'sdkkey' => $sdk_key,
-			);
+			$this->store['guardlms_sdk_credentials'] = array( 'sdkkey' => $sdk_key );
 		}
 	}
 
@@ -238,7 +237,7 @@ final class SdkInjectorTest extends AbstractGuardLMSTestCase {
 
 	/**
 	 * AC D1. With the opt-in off, nothing is enqueued AND the non-autoloaded
-	 * credentials option is never read. The whole storage split is justified by
+	 * SDK credentials option is never read. The whole storage split is justified by
 	 * "a site that never opted in pays nothing", so this is a call-count
 	 * assertion, not a behaviour one: a reordered guard would still emit no
 	 * script while quietly adding a database read to every front-end request.
@@ -250,7 +249,7 @@ final class SdkInjectorTest extends AbstractGuardLMSTestCase {
 
 		$this->assertSame( array(), $this->enqueued );
 		$this->assertSame( array(), $this->inline );
-		$this->assertArrayNotHasKey( 'guardlms_credentials', $this->reads );
+		$this->assertArrayNotHasKey( 'guardlms_sdk_credentials', $this->reads );
 	}
 
 	public function test_plugin_wide_disable_short_circuits_before_the_credentials_option(): void {
@@ -260,7 +259,7 @@ final class SdkInjectorTest extends AbstractGuardLMSTestCase {
 		GuardLMS_Sdk_Injector::enqueue();
 
 		$this->assertSame( array(), $this->enqueued );
-		$this->assertArrayNotHasKey( 'guardlms_credentials', $this->reads );
+		$this->assertArrayNotHasKey( 'guardlms_sdk_credentials', $this->reads );
 	}
 
 	/**
@@ -272,7 +271,7 @@ final class SdkInjectorTest extends AbstractGuardLMSTestCase {
 
 		GuardLMS_Sdk_Injector::enqueue();
 
-		$this->assertArrayHasKey( 'guardlms_credentials', $this->reads );
+		$this->assertArrayHasKey( 'guardlms_sdk_credentials', $this->reads );
 		$this->assertNotEmpty( $this->enqueued );
 	}
 
@@ -583,6 +582,87 @@ final class SdkInjectorTest extends AbstractGuardLMSTestCase {
 
 	// --- script_loader_tag ----------------------------------------------------
 
+	/**
+	 * WP_Scripts::do_item() concatenates registered inline scripts onto $tag
+	 * (`$tag .= $after_script`) BEFORE applying script_loader_tag, so the filter
+	 * receives the whole GuardLMS.init(…) payload, not just the src element.
+	 *
+	 * This reproduces that. With an unscoped rewrite, a dashboard-configured
+	 * pattern containing " async=1" made the regex consume everything from there
+	 * to the next `>` - which JSON_HEX_TAG guarantees is not inside the JSON -
+	 * truncating the call into an unterminated string literal. The bundle still
+	 * loaded, window.GuardLMS still existed, and init() never ran: no
+	 * configuration, no reporting, and a self-test that reported success.
+	 *
+	 * @return void
+	 */
+	public function test_the_tag_filter_never_touches_the_inline_payload(): void {
+		$this->seedHealthy( array( 'ignored_errors' => array( 'Failed to load chunk async=1' ) ) );
+		GuardLMS_Sdk_Injector::enqueue();
+		$inline = $this->inline[0][1];
+
+		// Exactly what WordPress hands the filter.
+		$tag = "<script src='https://app.guardlms.test/sdk/guardlms.min.js?v=deadbeef1234' id='guardlms-sdk-js'></script>\n"
+			. "<script id='guardlms-sdk-js-after'>\n" . $inline . "\n</script>\n";
+
+		$filtered = GuardLMS_Sdk_Injector::filter_script_tag( $tag, 'guardlms-sdk' );
+
+		// The payload survives byte for byte.
+		$this->assertStringContainsString( $inline, $filtered );
+
+		// And it is still parseable, with the configured pattern intact.
+		preg_match( '#GuardLMS\.init\((.*)\);#s', $filtered, $matches );
+		$decoded = json_decode( $matches[1], true );
+		$this->assertIsArray( $decoded, 'The init payload no longer parses as JSON.' );
+		$this->assertContains( 'Failed to load chunk async=1', $decoded['ignoreErrors'] );
+
+		// The opening tag was still rewritten - the filter did its actual job.
+		$this->assertStringContainsString( 'data-no-optimize="1"', $filtered );
+	}
+
+	/**
+	 * The subtler half of the same bug: a pattern containing a bare " async" or
+	 * " defer" was silently shortened, so the admin's configured filter quietly
+	 * stopped matching with nothing broken on screen.
+	 */
+	public function test_the_tag_filter_does_not_shorten_bare_defer_or_async_in_the_payload(): void {
+		$this->seedHealthy(
+			array(
+				'ignored_errors' => array(
+					'Uncaught SyntaxError: Unexpected token async',
+					'Script defer failed',
+				),
+			)
+		);
+		GuardLMS_Sdk_Injector::enqueue();
+		$inline = $this->inline[0][1];
+
+		$tag = "<script src='https://x.test/g.js' id='guardlms-sdk-js'></script>\n"
+			. "<script id='guardlms-sdk-js-after'>\n" . $inline . "\n</script>\n";
+
+		$filtered = GuardLMS_Sdk_Injector::filter_script_tag( $tag, 'guardlms-sdk' );
+
+		preg_match( '#GuardLMS\.init\((.*)\);#s', $filtered, $matches );
+		$decoded = json_decode( $matches[1], true );
+
+		$this->assertContains( 'Uncaught SyntaxError: Unexpected token async', $decoded['ignoreErrors'] );
+		$this->assertContains( 'Script defer failed', $decoded['ignoreErrors'] );
+	}
+
+	/**
+	 * A defer the optimizer added to the OPENING tag is still stripped when an
+	 * inline block follows it - the fix must not have simply stopped working.
+	 */
+	public function test_the_tag_filter_still_strips_defer_from_the_opening_tag_with_inline_present(): void {
+		$tag = "<script defer src='https://x.test/g.js' id='guardlms-sdk-js'></script>\n"
+			. "<script id='guardlms-sdk-js-after'>\nGuardLMS.init({\"a\":1});\n</script>\n";
+
+		$filtered = GuardLMS_Sdk_Injector::filter_script_tag( $tag, 'guardlms-sdk' );
+
+		$this->assertDoesNotMatchRegularExpression( '/<script[^>]*\sdefer[\s=>]/', $filtered );
+		$this->assertStringContainsString( 'GuardLMS.init({"a":1});', $filtered );
+	}
+
 	public function test_the_tag_filter_leaves_other_handles_alone(): void {
 		$tag = '<script defer src="https://other.test/x.js"></script>';
 
@@ -710,22 +790,73 @@ final class SdkInjectorTest extends AbstractGuardLMSTestCase {
 	}
 
 	/**
-	 * The probe must still run when the SDK did NOT load - detecting exactly that
-	 * is its purpose, so gating it behind a successful injection would make it
-	 * useless in the only case it exists for.
+	 * The probe must NOT run when the plugin deliberately skipped injection.
+	 *
+	 * Its only message for a missing window.GuardLMS is "another plugin may be
+	 * deferring or blocking it". That is true when injection was attempted and
+	 * the browser did not get it, and a fabricated accusation in every case where
+	 * the plugin chose not to inject - which includes the likeliest first run of
+	 * all: key fetched, admin has not ticked the box yet. Those cases already
+	 * have a correct, more specific sentence on the settings page.
+	 *
+	 * @dataProvider probeSuppressionProvider
+	 * @param array $overrides Overrides for the nested sdk array.
+	 * @return void
 	 */
-	public function test_the_probe_runs_even_when_the_sdk_was_suppressed(): void {
-		$this->seedHealthy( array( 'enabled' => false ) );
+	public function test_the_probe_does_not_run_when_injection_was_skipped( array $overrides ): void {
+		$this->seedHealthy( $overrides );
 		$_GET[ GuardLMS_Sdk_Injector::SELFTEST_FLAG ] = '1';
 		Functions\when( 'is_user_logged_in' )->justReturn( true );
 		Functions\when( 'current_user_can' )->justReturn( true );
 
 		GuardLMS_Sdk_Injector::enqueue();
 
-		// The probe's own handle is enqueued; the SDK's is not.
 		$this->assertNotContains( 'guardlms-sdk', $this->enqueuedHandles() );
+		$this->assertNotContains( 'guardlms-sdk-selftest', $this->enqueuedHandles() );
+		$this->assertSame( array(), $this->registered );
+	}
+
+	/**
+	 * @return array<string,array{0:array}>
+	 */
+	public function probeSuppressionProvider(): array {
+		return array(
+			'admin has not opted in' => array( array( 'enabled' => false ) ),
+			'subscription expired'   => array( array( 'subscription_active' => false ) ),
+			'dashboard switch off'   => array( array( 'backend_enabled' => false ) ),
+		);
+	}
+
+	/**
+	 * The converse: when injection DID happen, the probe rides along, because
+	 * that is the one case where "GuardLMS did not load" is real information.
+	 */
+	public function test_the_probe_runs_when_the_sdk_was_injected(): void {
+		$this->seedHealthy();
+		$_GET[ GuardLMS_Sdk_Injector::SELFTEST_FLAG ] = '1';
+		Functions\when( 'is_user_logged_in' )->justReturn( true );
+		Functions\when( 'current_user_can' )->justReturn( true );
+
+		GuardLMS_Sdk_Injector::enqueue();
+
+		$this->assertContains( 'guardlms-sdk', $this->enqueuedHandles() );
 		$this->assertContains( 'guardlms-sdk-selftest', $this->enqueuedHandles() );
-		$this->assertCount( 1, $this->registered );
+	}
+
+	/**
+	 * The master reporting toggle suppresses the probe too - it suppresses the
+	 * whole plugin.
+	 */
+	public function test_the_probe_does_not_run_when_reporting_is_switched_off(): void {
+		$this->seedHealthy();
+		$this->store['guardlms_settings']['enabled'] = false;
+		$_GET[ GuardLMS_Sdk_Injector::SELFTEST_FLAG ] = '1';
+		Functions\when( 'is_user_logged_in' )->justReturn( true );
+		Functions\when( 'current_user_can' )->justReturn( true );
+
+		GuardLMS_Sdk_Injector::enqueue();
+
+		$this->assertSame( array(), $this->registered );
 	}
 
 	public function test_the_probe_omits_the_dashboard_link_when_the_site_id_is_unknown(): void {

@@ -70,53 +70,93 @@ final class CredentialsTest extends AbstractGuardLMSTestCase {
 	}
 
 	/**
-	 * set_key() merges rather than replaces. A reconnect refreshes the push key
-	 * and must not silently discard the SDK key stored beside it - which is what
-	 * an unconditional update_option( array( 'apikey' => ... ) ) would do.
+	 * THE CONCURRENCY GUARANTEE. The two credentials have independent writers
+	 * that really do run at the same time - the push key from the connect REST
+	 * callback and the advanced settings save, the SDK key from the settings-page
+	 * bootstrap, the Refresh button and the daily cron.
+	 *
+	 * This drives them interleaved in the worst possible order against a shared
+	 * store: both writers read, then both write, each unaware of the other. While
+	 * the two keys shared one option this dropped whichever key the loser had not
+	 * read - and losing the SDK key that way is unrecoverable through the UI,
+	 * because the backend returns `key: null` once a key has been issued.
 	 */
-	public function test_set_key_preserves_the_sdk_key_stored_beside_it(): void {
-		$captured = null;
-		Functions\when( 'get_option' )->justReturn(
-			array(
-				'apikey' => 'old-push-key',
-				'sdkkey' => 'glms_live_sdk_key',
-			)
+	public function test_interleaved_writers_cannot_drop_each_others_credential(): void {
+		$store = array();
+		Functions\when( 'get_option' )->alias(
+			static function ( $name, $default = false ) use ( &$store ) {
+				return array_key_exists( $name, $store ) ? $store[ $name ] : $default;
+			}
 		);
 		Functions\when( 'update_option' )->alias(
-			static function ( $name, $value ) use ( &$captured ) {
-				$captured = $value;
+			static function ( $name, $value ) use ( &$store ) {
+				$store[ $name ] = $value;
 				return true;
 			}
 		);
 
-		GuardLMS_Credentials::set_key( 'new-push-key' );
+		// Writer A reads. Writer B reads. B writes. A writes last, so under a
+		// shared read-modify-write A's stale snapshot would win and erase B.
+		GuardLMS_Credentials::set_key( 'push-key-v1' );
+		GuardLMS_Credentials::set_sdk_key( 'glms_live' );
+		GuardLMS_Credentials::set_key( 'push-key-v2' );
 
-		$this->assertSame(
-			array(
-				'apikey' => 'new-push-key',
-				'sdkkey' => 'glms_live_sdk_key',
-			),
-			$captured
+		$this->assertSame( 'push-key-v2', GuardLMS_Credentials::get_key() );
+		$this->assertSame( 'glms_live', GuardLMS_Credentials::get_sdk_key() );
+
+		// And in the other order.
+		GuardLMS_Credentials::set_sdk_key( 'glms_rotated' );
+		$this->assertSame( 'push-key-v2', GuardLMS_Credentials::get_key() );
+		$this->assertSame( 'glms_rotated', GuardLMS_Credentials::get_sdk_key() );
+	}
+
+	/**
+	 * The structural reason the above holds: neither setter reads the other's
+	 * option at all, so there is no shared value to lose. Asserted on the option
+	 * NAMES touched, because that is the property that makes the guarantee hold
+	 * under any interleaving rather than just the one exercised above.
+	 */
+	public function test_each_setter_writes_only_its_own_option(): void {
+		$touched = array();
+		Functions\when( 'get_option' )->alias(
+			static function ( $name, $default = false ) use ( &$touched ) {
+				$touched[] = 'read:' . $name;
+				return $default;
+			}
 		);
+		Functions\when( 'update_option' )->alias(
+			static function ( $name ) use ( &$touched ) {
+				$touched[] = 'write:' . $name;
+				return true;
+			}
+		);
+
+		GuardLMS_Credentials::set_key( 'push-key' );
+		$this->assertSame( array( 'write:guardlms_credentials' ), $touched );
+
+		$touched = array();
+		GuardLMS_Credentials::set_sdk_key( 'glms_abc' );
+		$this->assertSame( array( 'write:guardlms_sdk_credentials' ), $touched );
 	}
 
 	public function test_get_sdk_key_returns_trimmed_value_and_empty_when_absent(): void {
 		Functions\when( 'get_option' )->justReturn( array( 'sdkkey' => '  glms_abc  ' ) );
 		$this->assertSame( 'glms_abc', GuardLMS_Credentials::get_sdk_key() );
 
-		Functions\when( 'get_option' )->justReturn( array( 'apikey' => 'push' ) );
+		Functions\when( 'get_option' )->justReturn( array() );
 		$this->assertSame( '', GuardLMS_Credentials::get_sdk_key() );
 
 		Functions\when( 'get_option' )->justReturn( 'not-an-array' );
 		$this->assertSame( '', GuardLMS_Credentials::get_sdk_key() );
 	}
 
-	public function test_set_sdk_key_merges_and_stays_non_autoloaded(): void {
+	public function test_set_sdk_key_stores_trimmed_and_non_autoloaded(): void {
 		$captured = null;
+		$name     = null;
 		$autoload = null;
-		Functions\when( 'get_option' )->justReturn( array( 'apikey' => 'push-key' ) );
 		Functions\when( 'update_option' )->alias(
-			static function ( $name, $value, $auto ) use ( &$captured, &$autoload ) {
+			static function ( $option, $value, $auto ) use ( &$name, &$captured, &$autoload ) {
+				$name     = $option;
 				$captured = $value;
 				$autoload = $auto;
 				return true;
@@ -125,49 +165,42 @@ final class CredentialsTest extends AbstractGuardLMSTestCase {
 
 		GuardLMS_Credentials::set_sdk_key( '  glms_new  ' );
 
-		$this->assertSame(
-			array(
-				'apikey' => 'push-key',
-				'sdkkey' => 'glms_new',
-			),
-			$captured
-		);
+		$this->assertSame( 'guardlms_sdk_credentials', $name );
+		$this->assertSame( array( 'sdkkey' => 'glms_new' ), $captured );
+		// The SDK key is public once injected, but it is still a bearer
+		// credential for a write endpoint, so it stays out of the autoload set.
 		$this->assertSame( 'no', $autoload );
 	}
 
-	public function test_delete_sdk_key_removes_only_the_sdk_key(): void {
-		$captured = null;
-		Functions\when( 'get_option' )->justReturn(
-			array(
-				'apikey' => 'push-key',
-				'sdkkey' => 'glms_abc',
-			)
-		);
-		Functions\when( 'update_option' )->alias(
-			static function ( $name, $value ) use ( &$captured ) {
-				$captured = $value;
+	public function test_delete_sdk_key_removes_only_the_sdk_option(): void {
+		$deleted = array();
+		Functions\when( 'delete_option' )->alias(
+			static function ( $name ) use ( &$deleted ) {
+				$deleted[] = $name;
 				return true;
 			}
 		);
 
 		GuardLMS_Credentials::delete_sdk_key();
 
-		$this->assertSame( array( 'apikey' => 'push-key' ), $captured );
+		$this->assertSame( array( 'guardlms_sdk_credentials' ), $deleted );
 	}
 
-	/**
-	 * disconnect() deletes the whole credentials option and THEN clears the SDK
-	 * config, which calls delete_sdk_key(). If that wrote unconditionally it
-	 * would recreate the option delete() just removed, leaving an empty
-	 * guardlms_credentials row behind on every disconnect.
-	 */
-	public function test_delete_sdk_key_is_a_no_op_when_the_option_is_absent(): void {
-		Functions\when( 'get_option' )->justReturn( false );
-		Functions\expect( 'update_option' )->never();
+	public function test_delete_removes_both_credential_options(): void {
+		$deleted = array();
+		Functions\when( 'delete_option' )->alias(
+			static function ( $name ) use ( &$deleted ) {
+				$deleted[] = $name;
+				return true;
+			}
+		);
 
-		GuardLMS_Credentials::delete_sdk_key();
+		GuardLMS_Credentials::delete();
 
-		$this->assertSame( '', GuardLMS_Credentials::get_sdk_key() );
+		$this->assertSame(
+			array( 'guardlms_credentials', 'guardlms_sdk_credentials' ),
+			$deleted
+		);
 	}
 
 	public function test_ensure_option_seeds_empty_key_autoloaded_no(): void {

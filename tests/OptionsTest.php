@@ -142,7 +142,7 @@ final class OptionsTest extends AbstractGuardLMSTestCase {
 	 * genuinely needs no change. This test proves that rather than assuming it:
 	 * the day a third option key is introduced, this fails.
 	 */
-	public function test_uninstall_deletes_exactly_the_two_options_the_plugin_writes(): void {
+	public function test_uninstall_deletes_exactly_the_options_the_plugin_writes(): void {
 		$uninstall = (string) file_get_contents( GUARDLMS_PLUGIN_DIR . 'uninstall.php' );
 
 		$this->assertSame(
@@ -154,7 +154,7 @@ final class OptionsTest extends AbstractGuardLMSTestCase {
 		preg_match_all( "/'([^']+)'/", $matches[1], $keys );
 		sort( $keys[1] );
 
-		$this->assertSame( array( 'guardlms_credentials', 'guardlms_settings' ), $keys[1] );
+		$this->assertSame( array( 'guardlms_credentials', 'guardlms_sdk_credentials', 'guardlms_settings' ), $keys[1] );
 	}
 
 	/**
@@ -163,7 +163,7 @@ final class OptionsTest extends AbstractGuardLMSTestCase {
 	 * mode is an orphaned row nobody notices until a support ticket.
 	 */
 	public function test_no_plugin_class_writes_an_option_outside_the_uninstall_list(): void {
-		$known = array( 'guardlms_settings', 'guardlms_credentials' );
+		$known = array( 'guardlms_settings', 'guardlms_credentials', 'guardlms_sdk_credentials' );
 		$found = array();
 
 		$files = new RecursiveIteratorIterator(
@@ -216,10 +216,8 @@ final class OptionsTest extends AbstractGuardLMSTestCase {
 					'refreshed_at' => 1750000000,
 				),
 			),
-			'guardlms_credentials' => array(
-				'apikey' => 'push-key',
-				'sdkkey' => 'glms_live',
-			),
+			'guardlms_credentials'     => array( 'apikey' => 'push-key' ),
+				'guardlms_sdk_credentials' => array( 'sdkkey' => 'glms_live' ),
 		);
 
 		Functions\when( 'get_option' )->alias(
@@ -236,7 +234,7 @@ final class OptionsTest extends AbstractGuardLMSTestCase {
 
 		// The 0.2.0 values are simply carried, unread, so a re-upgrade restores
 		// the previous state with no refetch.
-		$this->assertSame( 'glms_live', $store['guardlms_credentials']['sdkkey'] );
+		$this->assertSame( 'glms_live', $store['guardlms_sdk_credentials']['sdkkey'] );
 		$this->assertTrue( $store['guardlms_settings']['sdk']['enabled'] );
 	}
 }
