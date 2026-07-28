@@ -42,17 +42,20 @@ class GuardLMS_Http {
 	 * @param string $url       Absolute request URL.
 	 * @param string $json_body Pre-encoded JSON request body.
 	 * @param array  $headers   Additional request headers (merged over the JSON defaults).
+	 * @param int    $timeout   Transport timeout in seconds. The 30s default suits a
+	 *                          background push; a call made while an admin waits on a
+	 *                          page render passes a short value instead.
 	 * @return array|WP_Error   array( 'code' => int, 'body' => string ) on transport
 	 *                          success, or WP_Error on transport failure.
 	 */
-	public static function post( string $url, string $json_body, array $headers = array() ) {
+	public static function post( string $url, string $json_body, array $headers = array(), int $timeout = 30 ) {
 		$default_headers = array(
 			'Content-Type' => 'application/json',
 			'Accept'       => 'application/json',
 		);
 
 		$args = array(
-			'timeout'            => 30,
+			'timeout'            => max( 1, $timeout ),
 			'redirection'        => 0,
 			'reject_unsafe_urls' => true,
 			'headers'            => array_merge( $default_headers, $headers ),

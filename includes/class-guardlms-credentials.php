@@ -25,9 +25,16 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Read/write helper for the secret `guardlms_credentials` option.
  *
- * Stores the push API key ONLY, and is never autoloaded. A wp-config
- * `GUARDLMS_PUSH_KEY` constant takes precedence over the stored value. The key
- * is never logged.
+ * Never autoloaded. Holds two bearer credentials:
+ *
+ * - `apikey` - the server-to-server push key. A wp-config `GUARDLMS_PUSH_KEY`
+ *   constant takes precedence over the stored value.
+ * - `sdkkey` - the real-time monitoring (JavaScript SDK) key. Public once
+ *   injected into a page, but still a bearer credential for a write endpoint,
+ *   so it is kept under the same "credentials live here, are never logged,
+ *   never exported" rule rather than in the autoloaded settings option.
+ *
+ * Neither key is ever logged.
  */
 class GuardLMS_Credentials {
 
@@ -54,11 +61,14 @@ class GuardLMS_Credentials {
 	/**
 	 * Store the push key (non-autoloaded).
 	 *
+	 * Merges rather than replaces, so storing a fresh push key does not silently
+	 * discard the SDK key stored beside it.
+	 *
 	 * @param string $key Push key to store.
 	 * @return void
 	 */
 	public static function set_key( string $key ) {
-		update_option( self::OPTION, array( 'apikey' => trim( $key ) ), 'no' );
+		self::write( array( 'apikey' => trim( $key ) ) );
 	}
 
 	/**
@@ -68,6 +78,61 @@ class GuardLMS_Credentials {
 	 */
 	public static function has_key() {
 		return '' !== self::get_key();
+	}
+
+	/**
+	 * Resolve the stored real-time monitoring (SDK) key.
+	 *
+	 * @return string
+	 */
+	public static function get_sdk_key() {
+		$creds = get_option( self::OPTION, array() );
+		$sdkey = is_array( $creds ) && isset( $creds['sdkkey'] ) ? (string) $creds['sdkkey'] : '';
+
+		return trim( $sdkey );
+	}
+
+	/**
+	 * Store the real-time monitoring (SDK) key (non-autoloaded).
+	 *
+	 * @param string $key SDK key to store.
+	 * @return void
+	 */
+	public static function set_sdk_key( string $key ) {
+		self::write( array( 'sdkkey' => trim( $key ) ) );
+	}
+
+	/**
+	 * Drop the stored SDK key, leaving the push key in place.
+	 *
+	 * Deliberately a no-op when the option or the key is absent, so calling this
+	 * after delete() cannot recreate the option that delete() just removed.
+	 *
+	 * @return void
+	 */
+	public static function delete_sdk_key() {
+		$stored = get_option( self::OPTION, array() );
+		if ( ! is_array( $stored ) || ! array_key_exists( 'sdkkey', $stored ) ) {
+			return;
+		}
+
+		unset( $stored['sdkkey'] );
+		update_option( self::OPTION, $stored, 'no' );
+	}
+
+	/**
+	 * Merge values into the stored credentials, keeping the option non-autoloaded.
+	 *
+	 * @param array $values Partial credential values to merge.
+	 * @return void
+	 */
+	private static function write( array $values ) {
+		$stored = get_option( self::OPTION, array() );
+		if ( ! is_array( $stored ) ) {
+			$stored = array();
+		}
+
+		update_option( self::OPTION, array_merge( $stored, $values ), 'no' );
 	}
 
 	/**
