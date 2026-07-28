@@ -48,8 +48,17 @@ if ( ! defined( 'GUARDLMS_PLUGIN_URL' ) ) {
 }
 
 // Version and service defaults referenced by the option/collector classes.
+// The version is PARSED from guardlms.php rather than hardcoded: a stale copy
+// here would silently make every appVersion assertion test the fixture instead
+// of the plugin.
 if ( ! defined( 'GUARDLMS_VERSION' ) ) {
-	define( 'GUARDLMS_VERSION', '0.1.0' );
+	$guardlms_header = (string) file_get_contents( dirname( __DIR__ ) . '/guardlms.php' );
+	if ( ! preg_match( '/^\s*\*\s*Version:\s*(\S+)\s*$/m', $guardlms_header, $guardlms_matches ) ) {
+		fwrite( STDERR, "Could not parse the Version header from guardlms.php.\n" );
+		exit( 1 );
+	}
+	define( 'GUARDLMS_VERSION', $guardlms_matches[1] );
+	unset( $guardlms_header, $guardlms_matches );
 }
 if ( ! defined( 'GUARDLMS_DEFAULT_BASEURL' ) ) {
 	define( 'GUARDLMS_DEFAULT_BASEURL', 'https://app.guardlms.com' );
