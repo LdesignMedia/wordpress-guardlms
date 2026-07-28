@@ -41,9 +41,29 @@ class GuardLMS_Settings {
 	 * Settings API option group and stored option name.
 	 */
 	const GROUP    = 'guardlms';
-	const OPTION   = 'guardlms_settings';
 	const PAGE     = 'guardlms';
 	const PUSH_ACT = 'guardlms_push_now';
+
+	/**
+	 * The settings option name.
+	 *
+	 * Deliberately an alias of GuardLMS_Options::OPTION rather than a second copy
+	 * of the literal: two constants holding the same string is exactly the shape
+	 * where a rename updates one and leaves the other silently pointing at a row
+	 * nothing writes any more.
+	 *
+	 * @var string
+	 */
+	const OPTION = GuardLMS_Options::OPTION;
+
+	/**
+	 * Prefix of the per-user "Push now" result transient.
+	 *
+	 * One name, one place. The full key is this prefix plus the user id.
+	 *
+	 * @var string
+	 */
+	const PUSH_NOTICE_PREFIX = 'guardlms_push_result_';
 
 	/**
 	 * Register the options page, setting, sections and fields.
@@ -407,7 +427,7 @@ class GuardLMS_Settings {
 		}
 
 		set_transient(
-			'guardlms_push_result_' . get_current_user_id(),
+			self::PUSH_NOTICE_PREFIX . get_current_user_id(),
 			array(
 				'type'    => $type,
 				'message' => $message,
@@ -505,7 +525,7 @@ class GuardLMS_Settings {
 	 * @return void
 	 */
 	private static function render_push_notice() {
-		$key    = 'guardlms_push_result_' . get_current_user_id();
+		$key    = self::PUSH_NOTICE_PREFIX . get_current_user_id();
 		$result = get_transient( $key );
 		if ( false === $result || ! is_array( $result ) ) {
 			return;
