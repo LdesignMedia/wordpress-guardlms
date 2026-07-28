@@ -53,6 +53,7 @@ final class CredentialsTest extends AbstractGuardLMSTestCase {
 	public function test_set_key_stores_trimmed_value_non_autoloaded(): void {
 		$captured = null;
 		$autoload = null;
+		Functions\when( 'get_option' )->justReturn( array() );
 		Functions\when( 'update_option' )->alias(
 			static function ( $name, $value, $auto ) use ( &$captured, &$autoload ) {
 				$captured = array( $name, $value );
@@ -66,6 +67,107 @@ final class CredentialsTest extends AbstractGuardLMSTestCase {
 		$this->assertSame( 'guardlms_credentials', $captured[0] );
 		$this->assertSame( array( 'apikey' => 'fresh-key' ), $captured[1] );
 		$this->assertSame( 'no', $autoload );
+	}
+
+	/**
+	 * set_key() merges rather than replaces. A reconnect refreshes the push key
+	 * and must not silently discard the SDK key stored beside it - which is what
+	 * an unconditional update_option( array( 'apikey' => ... ) ) would do.
+	 */
+	public function test_set_key_preserves_the_sdk_key_stored_beside_it(): void {
+		$captured = null;
+		Functions\when( 'get_option' )->justReturn(
+			array(
+				'apikey' => 'old-push-key',
+				'sdkkey' => 'glms_live_sdk_key',
+			)
+		);
+		Functions\when( 'update_option' )->alias(
+			static function ( $name, $value ) use ( &$captured ) {
+				$captured = $value;
+				return true;
+			}
+		);
+
+		GuardLMS_Credentials::set_key( 'new-push-key' );
+
+		$this->assertSame(
+			array(
+				'apikey' => 'new-push-key',
+				'sdkkey' => 'glms_live_sdk_key',
+			),
+			$captured
+		);
+	}
+
+	public function test_get_sdk_key_returns_trimmed_value_and_empty_when_absent(): void {
+		Functions\when( 'get_option' )->justReturn( array( 'sdkkey' => '  glms_abc  ' ) );
+		$this->assertSame( 'glms_abc', GuardLMS_Credentials::get_sdk_key() );
+
+		Functions\when( 'get_option' )->justReturn( array( 'apikey' => 'push' ) );
+		$this->assertSame( '', GuardLMS_Credentials::get_sdk_key() );
+
+		Functions\when( 'get_option' )->justReturn( 'not-an-array' );
+		$this->assertSame( '', GuardLMS_Credentials::get_sdk_key() );
+	}
+
+	public function test_set_sdk_key_merges_and_stays_non_autoloaded(): void {
+		$captured = null;
+		$autoload = null;
+		Functions\when( 'get_option' )->justReturn( array( 'apikey' => 'push-key' ) );
+		Functions\when( 'update_option' )->alias(
+			static function ( $name, $value, $auto ) use ( &$captured, &$autoload ) {
+				$captured = $value;
+				$autoload = $auto;
+				return true;
+			}
+		);
+
+		GuardLMS_Credentials::set_sdk_key( '  glms_new  ' );
+
+		$this->assertSame(
+			array(
+				'apikey' => 'push-key',
+				'sdkkey' => 'glms_new',
+			),
+			$captured
+		);
+		$this->assertSame( 'no', $autoload );
+	}
+
+	public function test_delete_sdk_key_removes_only_the_sdk_key(): void {
+		$captured = null;
+		Functions\when( 'get_option' )->justReturn(
+			array(
+				'apikey' => 'push-key',
+				'sdkkey' => 'glms_abc',
+			)
+		);
+		Functions\when( 'update_option' )->alias(
+			static function ( $name, $value ) use ( &$captured ) {
+				$captured = $value;
+				return true;
+			}
+		);
+
+		GuardLMS_Credentials::delete_sdk_key();
+
+		$this->assertSame( array( 'apikey' => 'push-key' ), $captured );
+	}
+
+	/**
+	 * disconnect() deletes the whole credentials option and THEN clears the SDK
+	 * config, which calls delete_sdk_key(). If that wrote unconditionally it
+	 * would recreate the option delete() just removed, leaving an empty
+	 * guardlms_credentials row behind on every disconnect.
+	 */
+	public function test_delete_sdk_key_is_a_no_op_when_the_option_is_absent(): void {
+		Functions\when( 'get_option' )->justReturn( false );
+		Functions\expect( 'update_option' )->never();
+
+		GuardLMS_Credentials::delete_sdk_key();
+
+		$this->assertSame( '', GuardLMS_Credentials::get_sdk_key() );
 	}
 
 	public function test_ensure_option_seeds_empty_key_autoloaded_no(): void {

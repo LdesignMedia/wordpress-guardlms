@@ -84,6 +84,16 @@ class GuardLMS_Cron {
 			// The message never contains the API key.
 			error_log( 'GuardLMS daily push failed: ' . $result->get_error_message() ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 		}
+
+		// Refresh the real-time settings on the same schedule, so a plan or
+		// dashboard change propagates within 24h without a second cron event.
+		// Always `fetch`, never `rotate`: a retrying cron that rotated would
+		// invalidate the key it just stored. This is the belt for admins who
+		// never revisit the settings page; the page render itself bootstraps
+		// synchronously (GuardLMS_Sdk_Client::maybe_bootstrap).
+		if ( GuardLMS_Connect_Manager::is_connected() ) {
+			GuardLMS_Sdk_Client::resolve( 'fetch' );
+		}
 	}
 
 	/**

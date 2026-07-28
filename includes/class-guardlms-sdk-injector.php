@@ -177,6 +177,7 @@ class GuardLMS_Sdk_Injector {
 		// $in_footer is false and no defer strategy is applied: deferring means
 		// missing exactly the early errors the SDK exists to catch. ('defer'
 		// would also require WP 6.3, and this plugin supports 6.0.)
+		// phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion -- $ver is null on purpose: sdk_url already carries ?v={content-hash}, and letting WP append its own ver= would add a second, weaker buster.
 		wp_enqueue_script( self::HANDLE, esc_url_raw( (string) $sdk['sdk_url'] ), array(), null, false );
 
 		// JSON_HEX_TAG hex-escapes < and >, so a poisoned endpoint containing
@@ -335,6 +336,7 @@ class GuardLMS_Sdk_Injector {
 			return;
 		}
 
+		// phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion -- $src is false, so there is no URL to cache-bust: the probe is inline-only.
 		wp_register_script( self::SELFTEST_HANDLE, false, array(), null, true );
 		wp_enqueue_script( self::SELFTEST_HANDLE );
 		wp_add_inline_script( self::SELFTEST_HANDLE, self::selftest_script() );

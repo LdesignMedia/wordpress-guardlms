@@ -33,6 +33,9 @@ require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-options.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-credentials.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-http.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-api-client.php';
+require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-sdk-config.php';
+require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-sdk-status.php';
+require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-sdk-client.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-connect-manager.php';
 
 /**

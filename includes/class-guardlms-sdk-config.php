@@ -263,13 +263,13 @@ class GuardLMS_Sdk_Config {
 	/**
 	 * Reduce an arbitrary decoded JSON list to a clean list of non-empty strings.
 	 *
-	 * @param array $list Raw list from the backend payload.
+	 * @param array $entries Raw list from the backend payload.
 	 * @return string[]
 	 */
-	private static function clean_string_list( array $list ) {
+	private static function clean_string_list( array $entries ) {
 		$clean = array();
 
-		foreach ( $list as $entry ) {
+		foreach ( $entries as $entry ) {
 			if ( ! is_scalar( $entry ) ) {
 				continue;
 			}

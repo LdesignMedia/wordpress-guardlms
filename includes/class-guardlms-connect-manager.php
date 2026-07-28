@@ -157,6 +157,14 @@ class GuardLMS_Connect_Manager {
 
 		GuardLMS_Options::update( $updates );
 
+		// Real-time monitoring settings ride along on the exchange, so a fresh
+		// connect needs no second round trip and no cron run before the admin can
+		// switch it on. Guarded, so an older backend that returns no `sdk` block
+		// is a silent no-op rather than a fatal.
+		if ( isset( $data['sdk'] ) && is_array( $data['sdk'] ) ) {
+			GuardLMS_Sdk_Config::store_payload( $data['sdk'] );
+		}
+
 		// Push inventory immediately (also renders the ownership meta tag for the
 		// backend's homepage/DNS ownership check).
 		wp_schedule_single_event( time() + 5, GUARDLMS_INITIAL_HOOK );
@@ -181,7 +189,14 @@ class GuardLMS_Connect_Manager {
 	 * @return void
 	 */
 	public static function disconnect(): void {
+		// Revoke the real-time credential FIRST: the revoke call authenticates
+		// with the push key, so it is unsendable once the credentials option is
+		// gone. Its result is deliberately ignored - a backend that is down or
+		// too old must never leave an admin unable to disconnect.
+		GuardLMS_Sdk_Client::resolve( 'revoke' );
+
 		GuardLMS_Credentials::delete();
+		GuardLMS_Sdk_Config::clear();
 
 		GuardLMS_Options::update(
 			array(

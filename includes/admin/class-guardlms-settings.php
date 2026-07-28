@@ -251,6 +251,29 @@ class GuardLMS_Settings {
 			$clean['verificationtoken'] = sanitize_text_field( wp_unslash( (string) $input['verificationtoken'] ) );
 		}
 
+		// Real-time monitoring opt-in. Present only when the real-time form was the
+		// one submitted, so the advanced form's save cannot rewrite it and vice
+		// versa. Both checkboxes ship a hidden 0 companion.
+		if ( array_key_exists( 'sdk', $input ) && is_array( $input['sdk'] ) ) {
+			$sdk = GuardLMS_Sdk_Config::all();
+			$was = ! empty( $sdk['enabled'] );
+
+			$sdk['enabled'] = ! empty( $input['sdk']['enabled'] );
+			// Analytics needs BOTH the admin's opt-in and the plan entitlement.
+			// The checkbox is rendered disabled without the entitlement, but a
+			// disabled input is a display state, not a security control.
+			$sdk['analytics'] = ! empty( $input['sdk']['analytics'] ) && ! empty( $sdk['analytics_allowed'] );
+
+			$clean['sdk'] = $sdk;
+
+			// Flipping the toggle changes what every cached page must contain, so
+			// purge the page caches that would otherwise serve pre-toggle HTML -
+			// the single most common cause of "I turned it on and nothing happened".
+			if ( $was !== $sdk['enabled'] ) {
+				GuardLMS_Connect_Manager::purge_caches();
+			}
+		}
+
 		// API key: persisted via GuardLMS_Credentials, never stored in this option.
 		$apikey = isset( $input['apikey'] ) ? trim( wp_unslash( (string) $input['apikey'] ) ) : '';
 		if ( '' !== $apikey ) {
@@ -273,8 +296,15 @@ class GuardLMS_Settings {
 			wp_die( esc_html__( 'You do not have permission to access this page.', 'guardlms' ) );
 		}
 
+		// Fetch the real-time settings synchronously for a site that connected
+		// before this feature existed, BEFORE anything is rendered, so the key is
+		// present by the time the page describes its own state. Never
+		// cron-dependent: see GuardLMS_Sdk_Client::maybe_bootstrap().
+		GuardLMS_Sdk_Client::maybe_bootstrap();
+
 		self::render_push_notice();
 		GuardLMS_Connect_Page::render_notice();
+		GuardLMS_Realtime_Page::render_notice();
 
 		$advanced   = self::is_advanced();
 		$home       = home_url();
@@ -307,6 +337,10 @@ class GuardLMS_Settings {
 			GuardLMS_Connect_Page::render_status();
 			GuardLMS_Connect_Page::render_buttons();
 			GuardLMS_Connect_Page::render_details();
+
+			// The real-time opt-in belongs on the DEFAULT page, not behind
+			// ?advanced=1: it is the feature the site owner is here to switch on.
+			GuardLMS_Realtime_Page::render();
 			?>
 
 			<?php if ( $advanced ) : ?>
