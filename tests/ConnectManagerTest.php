@@ -153,9 +153,10 @@ final class ConnectManagerTest extends AbstractGuardLMSTestCase {
 	 * the outgoing request so base-URL binding can be asserted.
 	 *
 	 * @param array $captured Reference filled with the exchange url/body.
+	 * @param array $extra    Extra keys merged into the returned `data` envelope.
 	 * @return void
 	 */
-	private function stubExchangeSuccess( array &$captured ): void {
+	private function stubExchangeSuccess( array &$captured, array $extra = array() ): void {
 		$this->stubCachePlugins();
 		Functions\when( 'wp_json_encode' )->alias(
 			static function ( $data ) {
@@ -174,7 +175,7 @@ final class ConnectManagerTest extends AbstractGuardLMSTestCase {
 		);
 		Functions\when( 'wp_remote_retrieve_response_code' )->justReturn( 200 );
 		Functions\when( 'wp_remote_retrieve_body' )->justReturn(
-			(string) json_encode( array( 'data' => $this->exchangeData() ) )
+			(string) json_encode( array( 'data' => array_merge( $this->exchangeData(), $extra ) ) )
 		);
 	}
 
@@ -473,6 +474,233 @@ final class ConnectManagerTest extends AbstractGuardLMSTestCase {
 		$this->assertSame( '', $saved['verificationtoken'] );
 		$this->assertSame( 0, $saved['keyexpiresat'] );
 		$this->assertSame( '', $saved['connected_siteurl'] );
+	}
+
+	// --- disconnect(): SDK revocation ----------------------------------------
+
+	/**
+	 * AC D11. The revoke call authenticates with the PUSH key, so it is
+	 * unsendable once the credentials option is gone. Asserting only that both
+	 * happen would pass against the broken order, so this asserts the observable
+	 * consequence: the push key was still readable when the request went out.
+	 */
+	public function test_disconnect_revokes_before_deleting_the_push_key(): void {
+		$this->store['guardlms_credentials'] = array(
+			'apikey' => 'push-key-abc',
+			'sdkkey' => 'glms_live',
+		);
+		$this->seedSettings( array( 'connectedat' => 1700000000 ) );
+
+		$seen = array();
+		Functions\when( 'wp_json_encode' )->alias(
+			static function ( $data ) {
+				return json_encode( $data );
+			}
+		);
+		Functions\when( 'esc_url_raw' )->returnArg( 1 );
+		Functions\when( 'sanitize_text_field' )->returnArg( 1 );
+		Functions\when( 'home_url' )->justReturn( 'https://site.test/' );
+		Functions\when( 'wp_remote_post' )->alias(
+			function ( $url, $args ) use ( &$seen ) {
+				$seen[] = array(
+					'url'  => $url,
+					'auth' => $args['headers']['Authorization'] ?? '',
+					'body' => $args['body'],
+					// The credentials option must still exist at this point.
+					'creds_present' => array_key_exists( 'guardlms_credentials', $this->store ),
+				);
+				return array( 'stubbed' => true );
+			}
+		);
+		Functions\when( 'wp_remote_retrieve_response_code' )->justReturn( 200 );
+		Functions\when( 'wp_remote_retrieve_body' )->justReturn(
+			(string) json_encode( array( 'data' => array( 'key_status' => 'revoked' ) ) )
+		);
+
+		GuardLMS_Connect_Manager::disconnect();
+
+		$this->assertCount( 1, $seen, 'disconnect() did not call the revoke endpoint.' );
+		$this->assertSame( 'https://app.guardlms.com/api/integrations/sdk-key', $seen[0]['url'] );
+		$this->assertSame( 'revoke', json_decode( $seen[0]['body'], true )['action'] );
+		// The push key was present and usable when the revoke went out.
+		$this->assertSame( 'Bearer push-key-abc', $seen[0]['auth'] );
+		$this->assertTrue( $seen[0]['creds_present'] );
+
+		// ...and only afterwards was everything torn down.
+		$this->assertArrayNotHasKey( 'guardlms_credentials', $this->store );
+		$this->assertFalse( GuardLMS_Connect_Manager::is_connected() );
+	}
+
+	/**
+	 * AC D11. A backend that is down, too old or throwing must never leave an
+	 * admin unable to disconnect.
+	 */
+	public function test_disconnect_completes_when_the_revoke_call_fails(): void {
+		$this->store['guardlms_credentials'] = array(
+			'apikey' => 'push-key-abc',
+			'sdkkey' => 'glms_live',
+		);
+		$this->seedSettings(
+			array(
+				'connectedat' => 1700000000,
+				'websiteid'   => 42,
+				'sdk'         => array(
+					'enabled'      => true,
+					'sdk_url'      => 'https://cdn.test/x.js',
+					'refreshed_at' => 1700000000,
+				),
+			)
+		);
+
+		Functions\when( 'wp_json_encode' )->alias(
+			static function ( $data ) {
+				return json_encode( $data );
+			}
+		);
+		Functions\when( 'esc_url_raw' )->returnArg( 1 );
+		Functions\when( 'sanitize_text_field' )->returnArg( 1 );
+		Functions\when( 'home_url' )->justReturn( 'https://site.test/' );
+		Functions\when( 'wp_remote_post' )->justReturn( new WP_Error( 'http_request_failed', 'timed out' ) );
+
+		GuardLMS_Connect_Manager::disconnect();
+
+		$this->assertArrayNotHasKey( 'guardlms_credentials', $this->store );
+		$this->assertFalse( GuardLMS_Connect_Manager::is_connected() );
+		// The real-time configuration is reset to defaults, not left half-torn-down.
+		$this->assertSame( GuardLMS_Sdk_Config::defaults(), $this->settings()['sdk'] );
+		$this->assertSame( 0, $this->settings()['websiteid'] );
+	}
+
+	/**
+	 * delete() removes the whole credentials option; clear() then calls
+	 * delete_sdk_key(). If that wrote unconditionally it would recreate the row
+	 * delete() just removed, leaving an empty guardlms_credentials behind on
+	 * every disconnect.
+	 */
+	public function test_disconnect_does_not_recreate_the_credentials_option(): void {
+		$this->store['guardlms_credentials'] = array( 'apikey' => 'push-key-abc' );
+		$this->seedSettings( array( 'connectedat' => 1700000000 ) );
+		Functions\when( 'esc_url_raw' )->returnArg( 1 );
+		Functions\when( 'home_url' )->justReturn( 'https://site.test/' );
+		// No SDK key stored, so revoke is a no-op and no request is made.
+		Functions\expect( 'wp_remote_post' )->never();
+
+		GuardLMS_Connect_Manager::disconnect();
+
+		$this->assertArrayNotHasKey( 'guardlms_credentials', $this->store );
+	}
+
+	// --- complete_connect(): the sdk block ------------------------------------
+
+	/**
+	 * The exchange carries the real-time settings, so a fresh connect needs no
+	 * second round trip before the admin can switch the feature on.
+	 */
+	public function test_complete_connect_persists_the_sdk_block_from_the_exchange(): void {
+		$state = bin2hex( random_bytes( 20 ) );
+		$this->seedSettings(
+			array(
+				'connectstate'         => $state,
+				'connectstateexpires'  => time() + 300,
+				'connectstate_baseurl' => 'https://backend.test',
+			)
+		);
+
+		Functions\when( 'home_url' )->justReturn( 'https://site.test/' );
+		Functions\when( 'esc_url_raw' )->returnArg( 1 );
+		Functions\when( 'sanitize_text_field' )->returnArg( 1 );
+		$captured = array();
+		$this->stubExchangeSuccess( $captured, array( 'sdk' => $this->sdkBlock() ) );
+
+		$this->assertTrue( GuardLMS_Connect_Manager::complete_connect( 'code123', $state ) );
+
+		// The key went to credentials, beside (not over) the push key.
+		$this->assertSame( 'push-key-abc', $this->store['guardlms_credentials']['apikey'] );
+		$this->assertSame( 'glms_fromexchange', $this->store['guardlms_credentials']['sdkkey'] );
+
+		// The rest went to the nested settings array.
+		$sdk = $this->settings()['sdk'];
+		$this->assertSame( 'https://backend.test/sdk/guardlms.min.js?v=abc123', $sdk['sdk_url'] );
+		$this->assertTrue( $sdk['backend_enabled'] );
+		$this->assertTrue( $sdk['subscription_active'] );
+		$this->assertGreaterThan( 0, $sdk['refreshed_at'] );
+
+		// Opt-in stays OFF: connecting must not silently start shipping browser
+		// telemetry the admin never agreed to.
+		$this->assertFalse( $sdk['enabled'] );
+		$this->assertFalse( $sdk['analytics'] );
+	}
+
+	/**
+	 * A backend that predates PR-B returns no `sdk` key at all. That must be a
+	 * silent no-op, not a fatal on the one code path that installs the push key.
+	 */
+	public function test_complete_connect_without_an_sdk_block_does_not_fatal(): void {
+		$state = bin2hex( random_bytes( 20 ) );
+		$this->seedSettings(
+			array(
+				'connectstate'         => $state,
+				'connectstateexpires'  => time() + 300,
+				'connectstate_baseurl' => 'https://backend.test',
+			)
+		);
+
+		Functions\when( 'home_url' )->justReturn( 'https://site.test/' );
+		$captured = array();
+		$this->stubExchangeSuccess( $captured );
+
+		$this->assertTrue( GuardLMS_Connect_Manager::complete_connect( 'code123', $state ) );
+		$this->assertSame( 'push-key-abc', $this->store['guardlms_credentials']['apikey'] );
+		$this->assertArrayNotHasKey( 'sdkkey', $this->store['guardlms_credentials'] );
+		$this->assertArrayNotHasKey( 'sdk', $this->settings() );
+	}
+
+	/**
+	 * `sdk: null` is the documented shape when the backend's SDK issuance threw
+	 * but the push key was minted successfully. Connect must still succeed.
+	 */
+	public function test_complete_connect_with_a_null_sdk_block_still_succeeds(): void {
+		$state = bin2hex( random_bytes( 20 ) );
+		$this->seedSettings(
+			array(
+				'connectstate'         => $state,
+				'connectstateexpires'  => time() + 300,
+				'connectstate_baseurl' => 'https://backend.test',
+			)
+		);
+
+		Functions\when( 'home_url' )->justReturn( 'https://site.test/' );
+		$captured = array();
+		$this->stubExchangeSuccess( $captured, array( 'sdk' => null ) );
+
+		$this->assertTrue( GuardLMS_Connect_Manager::complete_connect( 'code123', $state ) );
+		$this->assertArrayNotHasKey( 'sdkkey', $this->store['guardlms_credentials'] );
+	}
+
+	/**
+	 * The sdk payload as PR-B's exchange emits it.
+	 *
+	 * @return array
+	 */
+	private function sdkBlock(): array {
+		return array(
+			'key'                   => 'glms_fromexchange',
+			'key_status'            => 'issued',
+			'key_prefix'            => 'glms_fro',
+			'sdk_url'               => 'https://backend.test/sdk/guardlms.min.js?v=abc123',
+			'errors_endpoint'       => 'https://backend.test/api/sdk/errors/collect',
+			'analytics_endpoint'    => 'https://backend.test/api/sdk/analytics/collect',
+			'enabled'               => true,
+			'subscription_active'   => true,
+			'analytics_allowed'     => false,
+			'sample_rate'           => 1.0,
+			'analytics_sample_rate' => 1.0,
+			'max_breadcrumbs'       => 50,
+			'max_errors_per_minute' => 60,
+			'ignored_errors'        => array(),
+			'allowed_domains'       => array(),
+			'allowed_domains_match' => true,
+		);
 	}
 
 	// --- purge_caches() ------------------------------------------------------
