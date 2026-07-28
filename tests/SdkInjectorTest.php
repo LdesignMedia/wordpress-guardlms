@@ -37,6 +37,36 @@ require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-sdk-injector.php';
 final class SdkInjectorTest extends AbstractGuardLMSTestCase {
 
 	/**
+	 * The §4.1 GuardLMS.init() option keys, in emission order.
+	 *
+	 * This is a THREE-WAY contract: the SDK README's "CMS / LMS plugins" block,
+	 * this plugin, and the Moodle plugin must all emit the same set. The SDK
+	 * repo's own structural test compares the README against its canonical
+	 * constant, but it cannot reach into this repository - so nothing outside
+	 * this file guards the WordPress plugin against drifting from §4.1.
+	 *
+	 * `analytics` is last and is the only conditional key: it is emitted only
+	 * when the plan allows analytics AND the admin opted in.
+	 *
+	 * @var string[]
+	 */
+	private const CANONICAL_KEYS = array(
+		'apiKey',
+		'endpoint',
+		'appVersion',
+		'releaseStage',
+		'sampleRate',
+		'maxBreadcrumbs',
+		'maxErrorsPerMinute',
+		'collectUserIp',
+		'interactionBreadcrumbsEnabled',
+		'enabledBreadcrumbTypes',
+		'redactedKeys',
+		'ignoreErrors',
+		'analytics',
+	);
+
+	/**
 	 * In-memory option store keyed by option name.
 	 *
 	 * @var array<string,mixed>
@@ -732,26 +762,51 @@ final class SdkInjectorTest extends AbstractGuardLMSTestCase {
 	 * the other side, so pin it here too.
 	 */
 	public function test_the_emitted_option_key_set_is_exactly_the_mandated_one(): void {
-		$this->seedHealthy();
+		$this->seedHealthy( array( 'analytics' => false ) );
 
 		GuardLMS_Sdk_Injector::enqueue();
 
-		$this->assertSame(
+		$expected = self::CANONICAL_KEYS;
+		// `analytics` is the only conditional key.
+		array_pop( $expected );
+
+		$this->assertSame( $expected, array_keys( $this->emittedConfig() ) );
+		$this->assertNotContains( 'analytics', array_keys( $this->emittedConfig() ) );
+	}
+
+	/**
+	 * The other half: with the entitlement and the opt-in, the emitted set is the
+	 * FULL canonical set, `analytics` included. Without this case the key-set
+	 * guard above only ever ran with analytics off, so an `analytics` block that
+	 * drifted in shape - or vanished - would not have been caught by it.
+	 */
+	public function test_the_emitted_option_key_set_with_analytics_is_the_full_canonical_set(): void {
+		$this->seedHealthy(
 			array(
-				'apiKey',
-				'endpoint',
-				'appVersion',
-				'releaseStage',
-				'sampleRate',
-				'maxBreadcrumbs',
-				'maxErrorsPerMinute',
-				'collectUserIp',
-				'interactionBreadcrumbsEnabled',
-				'enabledBreadcrumbTypes',
-				'redactedKeys',
-				'ignoreErrors',
-			),
-			array_keys( $this->emittedConfig() )
+				'analytics'         => true,
+				'analytics_allowed' => true,
+			)
 		);
+
+		GuardLMS_Sdk_Injector::enqueue();
+
+		$this->assertSame( self::CANONICAL_KEYS, array_keys( $this->emittedConfig() ) );
+	}
+
+	/**
+	 * The canonical set is a contract shared with the SDK README and the Moodle
+	 * plugin, so an addition on any one side is a drift on all three. Pinning the
+	 * count separately makes an accidental extra key fail loudly rather than
+	 * being absorbed into a long array literal during a review.
+	 */
+	public function test_the_canonical_key_set_has_not_grown_or_shrunk(): void {
+		$keys = self::CANONICAL_KEYS;
+
+		$this->assertCount( 13, $keys );
+		$this->assertNotContains( 'batchInterval', $keys );
+		$this->assertNotContains( 'user', $keys );
+		// `analytics` is last, because it is the only conditional key and the
+		// no-analytics case is derived by popping it.
+		$this->assertSame( 'analytics', end( $keys ) );
 	}
 }

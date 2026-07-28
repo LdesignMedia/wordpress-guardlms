@@ -78,8 +78,10 @@ class GuardLMS_Sdk_Injector {
 	 * On an LMS page the selectors they capture carry question ids, answer-option
 	 * ids and field names; combined with the page URL they reconstruct what a
 	 * learner answered. This array REPLACES the SDK's defaults rather than
-	 * merging with them, so new SDK defaults will not reach this plugin: revisit
-	 * this list whenever the SDK's defaults change.
+	 * merging with them (`Object.assign({}, this.config, options)`,
+	 * `sdk/src/index.js:218`), so a breadcrumb type added to the SDK defaults in
+	 * future will NOT reach this plugin: revisit this list whenever the SDK's
+	 * defaults change.
 	 *
 	 * @var string[]
 	 */
@@ -95,7 +97,9 @@ class GuardLMS_Sdk_Injector {
 	 *  - 'sesskey' matches no SDK default at all, which is why Moodle's CSRF
 	 *    token would otherwise ship in every error's pageUrl.
 	 * A bare 'key' is deliberately absent - substring matching would redact half
-	 * the payload. Like BREADCRUMB_TYPES, this REPLACES the SDK defaults.
+	 * the payload. Like BREADCRUMB_TYPES, this REPLACES the SDK defaults
+	 * (`sdk/src/index.js:218`); a redaction default added to the SDK later will
+	 * NOT protect this plugin unless it is added here too.
 	 *
 	 * @var string[]
 	 */
@@ -192,6 +196,18 @@ class GuardLMS_Sdk_Injector {
 
 	/**
 	 * Build the exact GuardLMS.init() configuration this plugin emits.
+	 *
+	 * THE SDK MERGES NOTHING. `GuardLMS.init()` does
+	 * `Object.assign({}, this.config, options)` (`sdk/src/index.js:218`), a
+	 * SHALLOW overwrite, so every array passed here REPLACES the SDK's default
+	 * array outright - it is not unioned with it. The consequence is easy to miss
+	 * and impossible to notice at runtime: when someone adds a new entry to the
+	 * SDK's own `redactedKeys` or `enabledBreadcrumbTypes` defaults, this plugin
+	 * silently does not get it, and a value the SDK now considers sensitive keeps
+	 * shipping from every WordPress site. Both arrays must therefore be revisited
+	 * whenever the SDK's defaults change - see BREADCRUMB_TYPES and REDACTED_KEYS
+	 * above, and the "CMS / LMS plugins" section of the SDK README, which holds
+	 * the canonical copy of this configuration.
 	 *
 	 * @param array  $sdk     Effective configuration from GuardLMS_Sdk_Config::all().
 	 * @param string $sdk_key The stored SDK key.
