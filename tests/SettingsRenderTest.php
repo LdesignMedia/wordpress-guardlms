@@ -423,6 +423,30 @@ final class SettingsRenderTest extends AbstractGuardLMSTestCase {
 		$this->assertStringContainsString( 'Update Allowed domains', $html );
 	}
 
+	/**
+	 * The backend can report a mismatch without sending the list it matched
+	 * against. Interpolating an empty array then renders "GuardLMS only accepts
+	 * data from ; this site reports as example.com" - a sentence with a hole in
+	 * it, which reads as a plugin bug and names nowhere for the admin to look.
+	 */
+	public function test_ux6_a_mismatch_without_an_allowed_list_still_reads_as_a_sentence(): void {
+		$this->seed(
+			array(
+				'allowed_domains_match' => false,
+				'allowed_domains'       => array(),
+			)
+		);
+
+		$html = $this->render();
+
+		$this->assertStringContainsString( 'www.site.test', $html );
+		$this->assertStringContainsString( 'Allowed domains', $html );
+
+		// No dangling "from ;" and no empty interpolation anywhere.
+		$this->assertStringNotContainsString( 'from ;', $html );
+		$this->assertStringNotContainsString( 'only accepts data from ', $html );
+	}
+
 	public function test_a_healthy_site_renders_no_advisories(): void {
 		$this->seed();
 
