@@ -2,136 +2,410 @@
 # This file is distributed under the GPLv3.
 msgid ""
 msgstr ""
-"Project-Id-Version: GuardLMS 0.1.0\n"
+"Project-Id-Version: GuardLMS 0.2.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/guardlms\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-07-17T00:00:00+00:00\n"
+"POT-Creation-Date: 2026-07-28T00:00:00+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"X-Generator: manual\n"
+"X-Generator: xgettext\n"
 "X-Domain: guardlms\n"
 
 #. Plugin Name of the plugin
 #: guardlms.php
-#: includes/admin/class-guardlms-settings.php
 msgid "GuardLMS"
+msgstr ""
+
+#. Plugin URI of the plugin
+#. Author URI of the plugin
+#: guardlms.php
+msgid "https://app.guardlms.com"
 msgstr ""
 
 #. Description of the plugin
 #: guardlms.php
-msgid "Reports your WordPress core version, plugin/theme inventory, and server/PHP environment to GuardLMS daily for CVE monitoring."
+msgid "Reports this site's WordPress core, plugin, theme and environment inventory to GuardLMS for CVE and security monitoring."
 msgstr ""
 
-#: includes/admin/class-guardlms-settings.php
-msgid "GuardLMS Settings"
+#. Author of the plugin
+#: guardlms.php
+msgid "LdesignMedia"
 msgstr ""
 
-#: includes/admin/class-guardlms-settings.php
-msgid "Enable daily push"
+#: includes/admin/class-guardlms-connect-page.php:82
+msgid "Status:"
 msgstr ""
 
-#: includes/admin/class-guardlms-settings.php
-msgid "Send the daily inventory push to GuardLMS."
+#: includes/admin/class-guardlms-connect-page.php:86
+msgid "Connected"
 msgstr ""
 
-#: includes/admin/class-guardlms-settings.php
-msgid "GuardLMS base URL"
+#: includes/admin/class-guardlms-connect-page.php:87
+msgid "Not connected"
 msgstr ""
 
-#: includes/admin/class-guardlms-settings.php
-msgid "The base URL of the GuardLMS service. Must use HTTPS."
+#: includes/admin/class-guardlms-connect-page.php:94
+msgid "Connect this site to GuardLMS to start security monitoring. You will be sent to GuardLMS to sign in or create a free account, then returned here automatically, with no API key to copy."
 msgstr ""
 
-#: includes/admin/class-guardlms-settings.php
-msgid "Push endpoint path"
+#: includes/admin/class-guardlms-connect-page.php:120
+msgid "Connected at"
 msgstr ""
 
-#: includes/admin/class-guardlms-settings.php
-msgid "The path appended to the base URL when pushing inventory data."
+#: includes/admin/class-guardlms-connect-page.php:125
+#: includes/admin/class-guardlms-connect-page.php:135
+msgid "Unknown"
 msgstr ""
 
-#: includes/admin/class-guardlms-settings.php
+#: includes/admin/class-guardlms-connect-page.php:130
+msgid "Expires at"
+msgstr ""
+
+#: includes/admin/class-guardlms-connect-page.php:140
+msgid "Last push"
+msgstr ""
+
+#: includes/admin/class-guardlms-connect-page.php:145
+#: includes/admin/class-guardlms-settings.php:343
+msgid "No successful push yet."
+msgstr ""
+
+#: includes/admin/class-guardlms-connect-page.php:168
+msgid "Connect"
+msgstr ""
+
+#: includes/admin/class-guardlms-connect-page.php:168
+msgid "Reconnect"
+msgstr ""
+
+#: includes/admin/class-guardlms-connect-page.php:182
+msgid "Disconnect"
+msgstr ""
+
+#: includes/admin/class-guardlms-connect-page.php:229
+msgid "Disconnected from GuardLMS."
+msgstr ""
+
+#: includes/admin/class-guardlms-connect-page.php:259
+#: includes/admin/class-guardlms-realtime-page.php:423
+#: includes/admin/class-guardlms-settings.php:416
+msgid "You do not have permission to perform this action."
+msgstr ""
+
+#: includes/admin/class-guardlms-realtime-page.php:101
+msgid "Real-time monitoring"
+msgstr ""
+
+#: includes/admin/class-guardlms-realtime-page.php:103
+msgid "Catches JavaScript errors in your visitors' browsers and reports them to GuardLMS, so a broken page is visible to you before anyone reports it."
+msgstr ""
+
+#: includes/admin/class-guardlms-realtime-page.php:125
+msgid "Real-time monitoring is ready. Switch it on below to start collecting browser errors."
+msgstr ""
+
+#: includes/admin/class-guardlms-realtime-page.php:130
+msgid "Real-time monitoring is active on this site."
+msgstr ""
+
+#: includes/admin/class-guardlms-realtime-page.php:137
+msgid "Real-time monitoring is turned off in the GuardLMS dashboard."
+msgstr ""
+
+#: includes/admin/class-guardlms-realtime-page.php:145
+msgid "No active GuardLMS subscription - real-time data is not being collected."
+msgstr ""
+
+#: includes/admin/class-guardlms-realtime-page.php:158
+msgid "Real-time settings have not been fetched yet. Use Refresh now to fetch them."
+msgstr ""
+
+#. translators: %s: formatted date and time of the last successful refresh.
+#: includes/admin/class-guardlms-realtime-page.php:178
+#, php-format
+msgid "Last successful refresh: %s"
+msgstr ""
+
+#: includes/admin/class-guardlms-realtime-page.php:181
+msgid "No successful refresh yet."
+msgstr ""
+
+#. translators: 1: the failure message from GuardLMS, 2: last successful refresh sentence.
+#: includes/admin/class-guardlms-realtime-page.php:187
+#, php-format
+msgid "Could not refresh the real-time settings: %1$s %2$s"
+msgstr ""
+
+#: includes/admin/class-guardlms-realtime-page.php:205
+msgid "Analytics is not included in your GuardLMS plan - error monitoring is still active."
+msgstr ""
+
+#: includes/admin/class-guardlms-realtime-page.php:212
+msgid "View plans"
+msgstr ""
+
+#. translators: 1: comma-separated allowed hostnames, 2: this site's hostname.
+#: includes/admin/class-guardlms-realtime-page.php:227
+#, php-format
+msgid "GuardLMS only accepts data from %1$s; this site reports as %2$s. Update Allowed domains in the GuardLMS dashboard."
+msgstr ""
+
+#: includes/admin/class-guardlms-realtime-page.php:254
+msgid "Error monitoring"
+msgstr ""
+
+#: includes/admin/class-guardlms-realtime-page.php:261
+msgid "Report JavaScript errors from visitors' browsers to GuardLMS."
+msgstr ""
+
+#: includes/admin/class-guardlms-realtime-page.php:266
+msgid "Analytics"
+msgstr ""
+
+#: includes/admin/class-guardlms-realtime-page.php:273
+msgid "Also collect anonymous page-view analytics."
+msgstr ""
+
+#: includes/admin/class-guardlms-realtime-page.php:276
+msgid "No visitor is identified: GuardLMS is never told who is logged in, and IP addresses are not collected by the script."
+msgstr ""
+
+#: includes/admin/class-guardlms-realtime-page.php:282
+msgid "Save real-time settings"
+msgstr ""
+
+#: includes/admin/class-guardlms-realtime-page.php:301
+msgid "Refresh now"
+msgstr ""
+
+#: includes/admin/class-guardlms-realtime-page.php:310
+msgid "Send a test error"
+msgstr ""
+
+#: includes/admin/class-guardlms-realtime-page.php:315
+msgid "This replaces the key this site currently serves. Pages cached before the change keep sending the old key until the cache clears. Continue?"
+msgstr ""
+
+#: includes/admin/class-guardlms-realtime-page.php:319
+msgid "Replace SDK key"
+msgstr ""
+
+#: includes/admin/class-guardlms-realtime-page.php:342
+#: includes/admin/class-guardlms-realtime-page.php:383
+msgid "This GuardLMS installation does not support real-time monitoring yet."
+msgstr ""
+
+#: includes/admin/class-guardlms-realtime-page.php:344
+msgid "Real-time settings refreshed."
+msgstr ""
+
+#: includes/admin/class-guardlms-realtime-page.php:385
+msgid "A new SDK key was issued for this site."
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php:84
+#: includes/admin/class-guardlms-settings.php:85
+#: includes/admin/class-guardlms-settings.php:102
+msgid "Connection"
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php:108
+msgid "Data collection"
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php:115
+msgid "Enabled"
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php:122
+msgid "Base URL"
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php:129
+msgid "Push path"
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php:136
 msgid "API key"
 msgstr ""
 
-#: includes/admin/class-guardlms-settings.php
-msgid "The site-bound push key issued by your GuardLMS dashboard."
-msgstr ""
-
-#: includes/admin/class-guardlms-settings.php
-msgid "Include configuration"
-msgstr ""
-
-#: includes/admin/class-guardlms-settings.php
-msgid "Optionally include a small set of non-secret configuration flags (WP_DEBUG, force_ssl_admin, users_can_register, default_role, blog_public) in the push payload."
-msgstr ""
-
-#: includes/admin/class-guardlms-settings.php
+#: includes/admin/class-guardlms-settings.php:143
 msgid "Verification token"
 msgstr ""
 
-#: includes/admin/class-guardlms-settings.php
-msgid "Paste the ownership verification token from your GuardLMS dashboard to render the verification meta tag."
+#: includes/admin/class-guardlms-settings.php:150
+msgid "Send configuration"
 msgstr ""
 
-#: includes/admin/class-guardlms-settings.php
+#: includes/admin/class-guardlms-settings.php:254
+msgid "The GuardLMS base URL must use HTTPS. The previous value was kept."
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php:316
+msgid "You do not have permission to access this page."
+msgstr ""
+
+#. translators: 1: formatted date, 2: HTTP status code.
+#: includes/admin/class-guardlms-settings.php:338
+#, php-format
+msgid "Last push: %1$s (HTTP %2$d)"
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php:369
+msgid "Advanced settings"
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php:372
+msgid "These settings are only needed for a self-hosted GuardLMS instance or for support. Changing them on a normal site breaks the connection."
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php:386
+msgid "Manual push"
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php:388
+msgid "Site URL registered in GuardLMS:"
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php:397
 msgid "Push now"
 msgstr ""
 
-#: includes/admin/class-guardlms-settings.php
-msgid "Register this URL in GuardLMS:"
+#: includes/admin/class-guardlms-settings.php:426
+msgid "Site information pushed to GuardLMS successfully."
 msgstr ""
 
-#: includes/admin/class-guardlms-settings.php
-msgid "Last push:"
+#: includes/admin/class-guardlms-settings.php:494
+msgid "GuardLMS detected that this site URL changed and has disconnected the stored API key. Re-enter your key to reconnect."
 msgstr ""
 
-#: includes/admin/class-guardlms-settings.php
-msgid "Never pushed yet."
+#. translators: %s: key expiry date.
+#: includes/admin/class-guardlms-settings.php:512
+#, php-format
+msgid "Your GuardLMS API key expires on %s. Please reconnect to obtain a fresh key before it expires."
 msgstr ""
 
-#: includes/admin/class-guardlms-settings.php
-msgid "Last push status:"
+#: includes/admin/class-guardlms-settings.php:551
+msgid "Connection settings for the GuardLMS service."
 msgstr ""
 
-#: includes/admin/class-guardlms-settings.php
-msgid "Push completed successfully."
+#: includes/admin/class-guardlms-settings.php:560
+msgid "Control what optional information is included in each push."
 msgstr ""
 
-#: includes/admin/class-guardlms-settings.php
-msgid "Settings saved."
+#: includes/admin/class-guardlms-settings.php:575
+msgid "Enable GuardLMS reporting and ownership verification."
 msgstr ""
 
-#. translators: %d: number of days until the push key expires.
-#: includes/admin/class-guardlms-settings.php
-msgid "Your GuardLMS push key expires in %d day(s). Renew it soon to keep CVE monitoring active."
+#: includes/admin/class-guardlms-settings.php:597
+msgid "HTTPS only. Leave as the default unless GuardLMS instructs otherwise."
 msgstr ""
 
-#: includes/admin/class-guardlms-settings.php
-msgid "This site's URL has changed since the GuardLMS key was connected. The push key has been cleared for security. Please reconnect GuardLMS for this site."
+#. translators: %s: wp-config.php constant name.
+#: includes/admin/class-guardlms-settings.php:615
+#, php-format
+msgid "Defined in wp-config.php (%s) and cannot be changed here."
 msgstr ""
 
-#: includes/class-guardlms-pusher.php
-msgid "GuardLMS is not configured. Enter a base URL and API key before pushing."
+#: includes/admin/class-guardlms-settings.php:649
+msgid "The API key is defined in wp-config.php (GUARDLMS_PUSH_KEY) and cannot be changed here."
 msgstr ""
 
-#. translators: %d: HTTP status code returned by the GuardLMS push endpoint.
-#: includes/class-guardlms-pusher.php
-msgid "GuardLMS push failed with HTTP status %d."
+#: includes/admin/class-guardlms-settings.php:655
+msgid "A key is stored — leave blank to keep it"
 msgstr ""
 
-#. translators: 1: the site URL registered in the GuardLMS dashboard. 2: the site's actual URL.
-#: includes/class-guardlms-pusher.php
-msgid "GuardLMS push failed: this site's URL does not match the URL registered in the GuardLMS dashboard. Registered: %1$s. Actual: %2$s."
+#: includes/admin/class-guardlms-settings.php:656
+msgid "Paste your GuardLMS API key"
 msgstr ""
 
-#: includes/class-guardlms-pusher.php
-msgid "GuardLMS push was skipped because the plugin/theme inventory looks incomplete. No data was sent, to avoid corrupting your CVE monitoring."
+#: includes/admin/class-guardlms-settings.php:664
+msgid "Stored securely and never displayed. Leave blank to keep the existing key."
 msgstr ""
 
-#: includes/class-guardlms-cron.php
-msgid "GuardLMS daily push failed."
+#: includes/admin/class-guardlms-settings.php:678
+msgid "Include a small, non-secret configuration summary (WP_DEBUG, registration, default role, etc.) in each push."
+msgstr ""
+
+#: includes/admin/class-guardlms-settings.php:694
+msgid "Paste the verification token from your GuardLMS dashboard to prove site ownership."
+msgstr ""
+
+#. translators: %d: the HTTP status code returned by GuardLMS.
+#: includes/class-guardlms-api-client.php:80
+#, php-format
+msgid "GuardLMS rejected the connect exchange (HTTP %d)."
+msgstr ""
+
+#: includes/class-guardlms-api-client.php:91
+msgid "GuardLMS returned an unexpected connect response."
+msgstr ""
+
+#: includes/class-guardlms-api-client.php:99
+msgid "GuardLMS did not return a push key in the connect response."
+msgstr ""
+
+#: includes/class-guardlms-connect-manager.php:112
+msgid "The GuardLMS connection could not be verified (invalid or already-used request). Please try connecting again."
+msgstr ""
+
+#: includes/class-guardlms-connect-manager.php:119
+msgid "The GuardLMS connection request expired. Please try connecting again."
+msgstr ""
+
+#: includes/class-guardlms-pusher.php:49
+msgid "GuardLMS is not configured: a push key and base URL are required."
+msgstr ""
+
+#: includes/class-guardlms-pusher.php:60
+msgid "GuardLMS refused to push: the WordPress core version is unavailable."
+msgstr ""
+
+#: includes/class-guardlms-pusher.php:72
+msgid "GuardLMS refused to push: the plugin inventory unexpectedly dropped to zero."
+msgstr ""
+
+#. translators: 1: the site URL this install reports, 2: the site URL registered in GuardLMS.
+#: includes/class-guardlms-pusher.php:99
+#, php-format
+msgid "GuardLMS rejected the push (HTTP 422): the site URL \"%1$s\" does not match the registered website \"%2$s\". Register \"%1$s\" in the GuardLMS dashboard or correct the mismatch."
+msgstr ""
+
+#. translators: %d: the HTTP status code returned by GuardLMS.
+#: includes/class-guardlms-pusher.php:111
+#, php-format
+msgid "GuardLMS rejected the push (HTTP %d)."
+msgstr ""
+
+#: includes/class-guardlms-sdk-client.php:99
+msgid "Unknown GuardLMS real-time action."
+msgstr ""
+
+#: includes/class-guardlms-sdk-client.php:107
+msgid "This site is not connected to GuardLMS, so real-time settings cannot be requested."
+msgstr ""
+
+#. translators: %d: the HTTP status code returned by GuardLMS.
+#: includes/class-guardlms-sdk-client.php:157
+#, php-format
+msgid "GuardLMS rejected the real-time settings request (HTTP %d)."
+msgstr ""
+
+#: includes/class-guardlms-sdk-client.php:167
+msgid "GuardLMS returned an unexpected real-time settings response."
+msgstr ""
+
+#: includes/class-guardlms-sdk-injector.php:356
+msgid "GuardLMS did not load on this page. Another plugin may be deferring or blocking it. Look for a \"delay JavaScript\" or \"defer JavaScript\" option in your optimization plugin and exclude guardlms.min.js from it."
+msgstr ""
+
+#: includes/class-guardlms-sdk-injector.php:357
+msgid "GuardLMS self-test error sent. It should appear in your GuardLMS dashboard within a minute."
+msgstr ""
+
+#: includes/class-guardlms-sdk-injector.php:358
+msgid "Open the GuardLMS dashboard"
 msgstr ""

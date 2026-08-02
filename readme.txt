@@ -4,7 +4,7 @@ Tags: security, cve, monitoring, vulnerability
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.1.0
+Stable tag: 0.2.0
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -64,6 +64,22 @@ transmitted payload.
 **When data is sent:** once daily via a scheduled background task, and immediately whenever you
 click "Push now" on the plugin settings page.
 
+**Real-time monitoring (optional, off by default).** If you switch on "Real-time monitoring" in
+the plugin settings, the plugin additionally loads a GuardLMS JavaScript file on your public
+pages, which reports JavaScript errors from your visitors' browsers directly to GuardLMS. This
+is a separate opt-in and nothing is loaded or sent while it is switched off.
+
+* **What the script sends:** the error message and stack trace, the page URL and referrer, the
+  browser user agent and viewport size, and an anonymous per-session identifier. If you also
+  switch on the optional analytics checkbox, it sends page-view events too.
+* **What the script never sends:** GuardLMS is never told which user is logged in — the plugin
+  never identifies a visitor to the service. The script does not record clicks, keystrokes or
+  form input, and does not collect the visitor's IP address. Security tokens in URLs
+  (`_wpnonce`, `sesskey`, `token`, `apiKey`, `authorization`, `password`, `secret`) are replaced
+  with `[REDACTED]` before anything leaves the browser.
+* **Where it is loaded:** public front-end pages only. Never in wp-admin and never on the login
+  screen.
+
 By installing and configuring this plugin, you agree to GuardLMS's own Terms of Service and
 Privacy Policy, which govern how GuardLMS itself handles the data described above:
 
@@ -94,9 +110,23 @@ reach them at `/wp-admin/options-general.php?page=guardlms&advanced=1`, or pin t
 
 = Does this plugin send any personal or user data to GuardLMS? =
 
-No. GuardLMS only receives your WordPress core version, plugin/theme inventory, and
-server/PHP environment details as described in the "Third Party Services" section above. No
-posts, pages, users, or database content are ever transmitted.
+The daily inventory push sends none: GuardLMS receives only your WordPress core version,
+plugin/theme inventory, and server/PHP environment details as described in the "Third Party
+Services" section above. No posts, pages, users, or database content are ever transmitted.
+
+If you switch on the optional real-time monitoring, the GuardLMS script running in your
+visitors' browsers additionally sends page URLs, referrers, user agents and error stack traces.
+GuardLMS is never told which user is logged in, and the script neither records what a visitor
+clicked or typed nor collects their IP address. Read the "Real-time monitoring" bullets in the
+"Third Party Services" section before switching it on, and mention it in your own privacy
+policy if your jurisdiction requires it.
+
+= How do I turn on real-time error monitoring? =
+
+Connect the site, then tick "Report JavaScript errors from visitors' browsers to GuardLMS"
+under Settings -> GuardLMS and save. There is no key to copy. Use "Send a test error" to
+confirm it is working — it reports back in your own browser, and tells you if another plugin is
+deferring or blocking the script.
 
 = Do I need a GuardLMS account? =
 
@@ -128,6 +158,20 @@ entirely.
 
 == Changelog ==
 
+= 0.2.0 =
+* Added optional real-time monitoring: a GuardLMS script on your public pages reports
+  JavaScript errors from visitors' browsers, with optional page-view analytics. Off by
+  default; switch it on under Settings -> GuardLMS. No key to copy — connecting the site
+  installs it, and sites connected before this release fetch it the first time the settings
+  page is opened.
+* Added "Send a test error", which reports back in your own browser and tells you when another
+  plugin is deferring or blocking the script.
+* Added "Replace SDK key" for rotating the real-time credential. Nothing rotates automatically.
+* The plugin refuses to load the script when it already knows the data would be rejected (no
+  active subscription, or real-time monitoring switched off in the GuardLMS dashboard) and says
+  which one it is, rather than reporting "on" and collecting nothing.
+* Disconnecting now revokes the real-time credential at GuardLMS before clearing the local key.
+
 = 0.1.0 =
 * Initial Phase 1 release: daily/on-demand inventory push (core, plugins, themes,
   server/PHP environment) to GuardLMS using a manually issued API key, settings page,
@@ -135,6 +179,10 @@ entirely.
   tag.
 
 == Upgrade Notice ==
+
+= 0.2.0 =
+Adds optional real-time JavaScript error monitoring for your visitors' browsers. Off by
+default; no action is required to keep 0.1.0 behaviour.
 
 = 0.1.0 =
 Initial release.

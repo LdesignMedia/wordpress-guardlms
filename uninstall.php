@@ -26,7 +26,7 @@
 
 defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
 
-$guardlms_option_keys = array( 'guardlms_settings', 'guardlms_credentials' );
+$guardlms_option_keys = array( 'guardlms_settings', 'guardlms_credentials', 'guardlms_sdk_credentials' );
 
 // Single-site options and network-level (site meta) options.
 foreach ( $guardlms_option_keys as $guardlms_key ) {

@@ -179,6 +179,19 @@ abstract class AbstractGuardLMSTestCase extends TestCase {
 		Functions\when( '__' )->returnArg( 1 );
 		Functions\when( 'esc_html__' )->returnArg( 1 );
 
+		// The echoing variants, escaping for real so output assertions are
+		// meaningful.
+		Functions\when( 'esc_html_e' )->alias(
+			static function ( $text ) {
+				echo htmlspecialchars( (string) $text, ENT_QUOTES );
+			}
+		);
+		Functions\when( 'esc_attr_e' )->alias(
+			static function ( $text ) {
+				echo htmlspecialchars( (string) $text, ENT_QUOTES );
+			}
+		);
+
 		// Real escaping so "is it escaped?" assertions are meaningful.
 		Functions\when( 'esc_attr' )->alias(
 			static function ( $text ) {

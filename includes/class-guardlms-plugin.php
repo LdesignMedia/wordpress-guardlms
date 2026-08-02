@@ -41,10 +41,15 @@ class GuardLMS_Plugin {
 		require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-cron.php';
 		require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-head-injector.php';
 		require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-api-client.php';
+		require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-sdk-config.php';
+		require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-sdk-status.php';
+		require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-sdk-client.php';
+		require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-sdk-injector.php';
 		require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-connect-manager.php';
 		require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-rest.php';
 		require_once GUARDLMS_PLUGIN_DIR . 'includes/admin/class-guardlms-settings.php';
 		require_once GUARDLMS_PLUGIN_DIR . 'includes/admin/class-guardlms-connect-page.php';
+		require_once GUARDLMS_PLUGIN_DIR . 'includes/admin/class-guardlms-realtime-page.php';
 	}
 
 	/**
@@ -58,10 +63,21 @@ class GuardLMS_Plugin {
 		// Front-end ownership meta tag (backend fetches the site root).
 		add_action( 'wp_head', array( 'GuardLMS_Head_Injector', 'render' ) );
 
+		// Real-time monitoring SDK. Priority 1 puts it ahead of every other
+		// ENQUEUED script; see the GuardLMS_Sdk_Injector class docblock for what
+		// that does and does not guarantee. The script_loader_tag filter keeps
+		// optimizer plugins from deferring it back into uselessness.
+		add_action( 'wp_enqueue_scripts', array( 'GuardLMS_Sdk_Injector', 'enqueue' ), 1 );
+		add_filter( 'script_loader_tag', array( 'GuardLMS_Sdk_Injector', 'filter_script_tag' ), 10, 2 );
+
 		// Admin settings page + Settings API registration + admin notices.
 		add_action( 'admin_menu', array( 'GuardLMS_Settings', 'register' ) );
 		add_action( 'admin_init', array( 'GuardLMS_Settings', 'register' ) );
 		add_action( 'admin_init', array( 'GuardLMS_Settings', 'maybe_notice' ) );
+
+		// Purge page caches AFTER the settings write lands, never during
+		// sanitize() - see GuardLMS_Settings::maybe_purge_on_toggle().
+		add_action( 'update_option_' . GuardLMS_Options::OPTION, array( 'GuardLMS_Settings', 'maybe_purge_on_toggle' ), 10, 2 );
 		add_action( 'admin_post_guardlms_push_now', array( 'GuardLMS_Settings', 'handle_push_now' ) );
 
 		// Phase 2 keyless Connect: REST callback and the admin-post actions. The
@@ -69,6 +85,11 @@ class GuardLMS_Plugin {
 		add_action( 'rest_api_init', array( 'GuardLMS_Rest', 'register' ) );
 		add_action( 'admin_post_guardlms_connect_start', array( 'GuardLMS_Connect_Page', 'handle_start' ) );
 		add_action( 'admin_post_guardlms_disconnect', array( 'GuardLMS_Connect_Page', 'handle_disconnect' ) );
+
+		// Real-time monitoring admin actions (nonce + manage_options guarded).
+		add_action( 'admin_post_guardlms_sdk_refresh', array( 'GuardLMS_Realtime_Page', 'handle_refresh' ) );
+		add_action( 'admin_post_guardlms_sdk_selftest', array( 'GuardLMS_Realtime_Page', 'handle_selftest' ) );
+		add_action( 'admin_post_guardlms_sdk_rotate', array( 'GuardLMS_Realtime_Page', 'handle_rotate' ) );
 
 		// WP-Cron push handlers.
 		add_action( GUARDLMS_DAILY_HOOK, array( 'GuardLMS_Cron', 'run_daily' ) );

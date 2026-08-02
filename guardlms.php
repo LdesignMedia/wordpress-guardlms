@@ -3,7 +3,7 @@
  * Plugin Name:       GuardLMS
  * Plugin URI:        https://app.guardlms.com
  * Description:       Reports this site's WordPress core, plugin, theme and environment inventory to GuardLMS for CVE and security monitoring.
- * Version:           0.1.0
+ * Version:           0.2.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            LdesignMedia
@@ -34,7 +34,7 @@
 defined( 'ABSPATH' ) || exit;
 
 // Plugin version and paths.
-define( 'GUARDLMS_VERSION', '0.1.0' );
+define( 'GUARDLMS_VERSION', '0.2.0' );
 define( 'GUARDLMS_PLUGIN_FILE', __FILE__ );
 define( 'GUARDLMS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'GUARDLMS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

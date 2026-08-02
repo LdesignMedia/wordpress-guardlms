@@ -41,9 +41,29 @@ class GuardLMS_Settings {
 	 * Settings API option group and stored option name.
 	 */
 	const GROUP    = 'guardlms';
-	const OPTION   = 'guardlms_settings';
 	const PAGE     = 'guardlms';
 	const PUSH_ACT = 'guardlms_push_now';
+
+	/**
+	 * The settings option name.
+	 *
+	 * Deliberately an alias of GuardLMS_Options::OPTION rather than a second copy
+	 * of the literal: two constants holding the same string is exactly the shape
+	 * where a rename updates one and leaves the other silently pointing at a row
+	 * nothing writes any more.
+	 *
+	 * @var string
+	 */
+	const OPTION = GuardLMS_Options::OPTION;
+
+	/**
+	 * Prefix of the per-user "Push now" result transient.
+	 *
+	 * One name, one place. The full key is this prefix plus the user id.
+	 *
+	 * @var string
+	 */
+	const PUSH_NOTICE_PREFIX = 'guardlms_push_result_';
 
 	/**
 	 * Register the options page, setting, sections and fields.
@@ -251,6 +271,28 @@ class GuardLMS_Settings {
 			$clean['verificationtoken'] = sanitize_text_field( wp_unslash( (string) $input['verificationtoken'] ) );
 		}
 
+		// Real-time monitoring opt-in. Present only when the real-time form was the
+		// one submitted, so the advanced form's save cannot rewrite it and vice
+		// versa. Both checkboxes ship a hidden 0 companion.
+		if ( array_key_exists( 'sdk', $input ) && is_array( $input['sdk'] ) ) {
+			$sdk = GuardLMS_Sdk_Config::all();
+
+			$sdk['enabled'] = ! empty( $input['sdk']['enabled'] );
+			// Analytics needs BOTH the admin's opt-in and the plan entitlement.
+			// The checkbox is rendered disabled without the entitlement, but a
+			// disabled input is a display state, not a security control.
+			$sdk['analytics'] = ! empty( $input['sdk']['analytics'] ) && ! empty( $sdk['analytics_allowed'] );
+
+			$clean['sdk'] = $sdk;
+
+			// The cache purge deliberately does NOT happen here. sanitize() runs
+			// BEFORE update_option() writes, so purging at this point empties the
+			// cache while the old value is still live - any request landing in
+			// that window re-caches pre-toggle HTML and the purge achieves
+			// nothing. It is hooked to update_option_guardlms_settings instead,
+			// which fires after the write. See maybe_purge_on_toggle().
+		}
+
 		// API key: persisted via GuardLMS_Credentials, never stored in this option.
 		$apikey = isset( $input['apikey'] ) ? trim( wp_unslash( (string) $input['apikey'] ) ) : '';
 		if ( '' !== $apikey ) {
@@ -273,8 +315,15 @@ class GuardLMS_Settings {
 			wp_die( esc_html__( 'You do not have permission to access this page.', 'guardlms' ) );
 		}
 
+		// Fetch the real-time settings synchronously for a site that connected
+		// before this feature existed, BEFORE anything is rendered, so the key is
+		// present by the time the page describes its own state. Never
+		// cron-dependent: see GuardLMS_Sdk_Client::maybe_bootstrap().
+		GuardLMS_Sdk_Client::maybe_bootstrap();
+
 		self::render_push_notice();
 		GuardLMS_Connect_Page::render_notice();
+		GuardLMS_Realtime_Page::render_notice();
 
 		$advanced   = self::is_advanced();
 		$home       = home_url();
@@ -307,6 +356,10 @@ class GuardLMS_Settings {
 			GuardLMS_Connect_Page::render_status();
 			GuardLMS_Connect_Page::render_buttons();
 			GuardLMS_Connect_Page::render_details();
+
+			// The real-time opt-in belongs on the DEFAULT page, not behind
+			// ?advanced=1: it is the feature the site owner is here to switch on.
+			GuardLMS_Realtime_Page::render();
 			?>
 
 			<?php if ( $advanced ) : ?>
@@ -349,6 +402,32 @@ class GuardLMS_Settings {
 	}
 
 	/**
+	 * Purge page caches when the real-time toggle actually changed.
+	 *
+	 * Hooked to `update_option_guardlms_settings`, which fires AFTER the new
+	 * value is committed - so the caches refill from HTML that already reflects
+	 * the new setting. Flipping the toggle changes what every cached page must
+	 * contain, and stale cached HTML is the single most common cause of "I
+	 * turned it on and nothing happened".
+	 *
+	 * @param mixed $old_value The previous option value.
+	 * @param mixed $value     The value just written.
+	 * @return void
+	 */
+	public static function maybe_purge_on_toggle( $old_value, $value ) {
+		$was = is_array( $old_value ) && isset( $old_value['sdk']['enabled'] )
+			? ! empty( $old_value['sdk']['enabled'] )
+			: false;
+		$now = is_array( $value ) && isset( $value['sdk']['enabled'] )
+			? ! empty( $value['sdk']['enabled'] )
+			: false;
+
+		if ( $was !== $now ) {
+			GuardLMS_Connect_Manager::purge_caches();
+		}
+	}
+
+	/**
 	 * Handle the "Push now" admin-post action.
 	 *
 	 * Hooked to `admin_post_guardlms_push_now`.
@@ -373,7 +452,7 @@ class GuardLMS_Settings {
 		}
 
 		set_transient(
-			'guardlms_push_result_' . get_current_user_id(),
+			self::PUSH_NOTICE_PREFIX . get_current_user_id(),
 			array(
 				'type'    => $type,
 				'message' => $message,
@@ -471,7 +550,7 @@ class GuardLMS_Settings {
 	 * @return void
 	 */
 	private static function render_push_notice() {
-		$key    = 'guardlms_push_result_' . get_current_user_id();
+		$key    = self::PUSH_NOTICE_PREFIX . get_current_user_id();
 		$result = get_transient( $key );
 		if ( false === $result || ! is_array( $result ) ) {
 			return;
