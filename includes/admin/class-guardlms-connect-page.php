@@ -76,18 +76,61 @@ class GuardLMS_Connect_Page {
 	 */
 	public static function render_status(): void {
 		$connected = GuardLMS_Connect_Manager::is_connected();
+		// Holding a key is not the same as having a working connection. When
+		// GuardLMS has refused that key, "Connected" is the single most
+		// misleading thing this page can say, so the refused state wins.
+		$rejected = $connected && GuardLMS_Connect_Manager::is_auth_rejected();
+
+		if ( $rejected ) {
+			$badge_class = 'guardlms-badge-rejected';
+			$badge_text  = __( 'Reconnect required', 'guardlms' );
+		} elseif ( $connected ) {
+			$badge_class = 'guardlms-badge-connected';
+			$badge_text  = __( 'Connected', 'guardlms' );
+		} else {
+			$badge_class = 'guardlms-badge-disconnected';
+			$badge_text  = __( 'Not connected', 'guardlms' );
+		}
 		?>
 		<div>
 			<p class="guardlms-status">
 				<strong><?php esc_html_e( 'Status:', 'guardlms' ); ?></strong>
-				<span class="guardlms-badge <?php echo $connected ? 'guardlms-badge-connected' : 'guardlms-badge-disconnected'; ?>">
-					<?php
-					echo $connected
-						? esc_html__( 'Connected', 'guardlms' )
-						: esc_html__( 'Not connected', 'guardlms' );
-					?>
+				<span class="guardlms-badge <?php echo esc_attr( $badge_class ); ?>">
+					<?php echo esc_html( $badge_text ); ?>
 				</span>
 			</p>
+
+			<?php if ( $rejected ) : ?>
+				<div class="notice notice-error inline">
+					<p>
+						<?php
+						esc_html_e(
+							'GuardLMS no longer accepts this site\'s connection key. The key was revoked, or the website it belonged to was removed from the GuardLMS dashboard. This site has stopped reporting: use Reconnect below to issue a new key.',
+							'guardlms'
+						);
+						?>
+					</p>
+					<?php
+					$rejected_at = GuardLMS_Connect_Manager::auth_rejected_at();
+					if ( $rejected_at > 0 ) :
+						?>
+						<p>
+							<?php
+							printf(
+								/* translators: %s: formatted date and time. */
+								esc_html__( 'First refused: %s', 'guardlms' ),
+								esc_html(
+									wp_date(
+										get_option( 'date_format' ) . ' ' . get_option( 'time_format' ),
+										$rejected_at
+									)
+								)
+							);
+							?>
+						</p>
+					<?php endif; ?>
+				</div>
+			<?php endif; ?>
 
 			<?php if ( ! $connected ) : ?>
 				<p>

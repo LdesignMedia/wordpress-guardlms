@@ -151,6 +151,19 @@ class GuardLMS_Sdk_Client {
 			return self::UNSUPPORTED;
 		}
 
+		// A refused key is a connection problem, not a real-time problem. Saying
+		// "HTTP 401" here sends the admin looking at the real-time settings,
+		// which is the one thing that cannot fix it - so name the actual cause
+		// and the actual remedy.
+		if ( GuardLMS_Connect_Manager::is_rejected_status( $status ) ) {
+			GuardLMS_Connect_Manager::note_auth_rejected();
+
+			$message = GuardLMS_Connect_Manager::auth_rejected_message( $status );
+			GuardLMS_Sdk_Config::record_error( $message );
+
+			return new WP_Error( 'guardlms_sdkrejected', $message, array( 'code' => $status ) );
+		}
+
 		if ( $status < 200 || $status >= 300 ) {
 			$message = sprintf(
 				/* translators: %d: the HTTP status code returned by GuardLMS. */
@@ -171,6 +184,11 @@ class GuardLMS_Sdk_Client {
 		}
 
 		GuardLMS_Sdk_Config::store_payload( $decoded['data'] );
+
+		// The key just authenticated, so clear any refusal an earlier call
+		// recorded - a reconnect elsewhere, or a backend that has come back,
+		// must not leave the admin screen stuck on "reconnect required".
+		GuardLMS_Connect_Manager::note_auth_accepted();
 
 		return $decoded['data'];
 	}

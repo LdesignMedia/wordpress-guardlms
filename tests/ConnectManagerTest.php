@@ -447,6 +447,59 @@ final class ConnectManagerTest extends AbstractGuardLMSTestCase {
 		$this->assertFalse( GuardLMS_Connect_Manager::is_connected() );
 	}
 
+	// --- refused-key state ---------------------------------------------------
+
+	public function test_a_site_whose_key_still_works_is_not_in_the_refused_state(): void {
+		$this->seedSettings( array( 'connectedat' => 1700000000 ) );
+
+		$this->assertFalse( GuardLMS_Connect_Manager::is_auth_rejected() );
+		$this->assertSame( 0, GuardLMS_Connect_Manager::auth_rejected_at() );
+	}
+
+	public function test_only_the_statuses_that_mean_a_refused_key_count(): void {
+		$this->assertTrue( GuardLMS_Connect_Manager::is_rejected_status( 401 ) );
+		$this->assertTrue( GuardLMS_Connect_Manager::is_rejected_status( 403 ) );
+		// A backend outage, a rate limit and a URL mismatch are all recoverable
+		// without a new key, so none of them may prompt a reconnect.
+		$this->assertFalse( GuardLMS_Connect_Manager::is_rejected_status( 500 ) );
+		$this->assertFalse( GuardLMS_Connect_Manager::is_rejected_status( 429 ) );
+		$this->assertFalse( GuardLMS_Connect_Manager::is_rejected_status( 422 ) );
+	}
+
+	public function test_the_first_refusal_timestamp_survives_later_refusals(): void {
+		$this->seedSettings( array( 'connectedat' => 1700000000 ) );
+
+		GuardLMS_Connect_Manager::note_auth_rejected();
+		$first = GuardLMS_Connect_Manager::auth_rejected_at();
+		$this->assertGreaterThan( 0, $first );
+
+		GuardLMS_Connect_Manager::note_auth_rejected();
+
+		// "Since when did this site stop reporting" is the question the admin
+		// screen answers, so a retry must not reset the clock.
+		$this->assertSame( $first, GuardLMS_Connect_Manager::auth_rejected_at() );
+	}
+
+	public function test_an_accepted_call_clears_the_refused_state(): void {
+		$this->seedSettings(
+			array(
+				'connectedat'    => 1700000000,
+				'authrejectedat' => 1750000000,
+			)
+		);
+
+		GuardLMS_Connect_Manager::note_auth_accepted();
+
+		$this->assertFalse( GuardLMS_Connect_Manager::is_auth_rejected() );
+	}
+
+	public function test_the_refused_message_names_the_cause_and_the_remedy(): void {
+		$message = GuardLMS_Connect_Manager::auth_rejected_message( 401 );
+
+		$this->assertStringContainsString( '401', $message );
+		$this->assertStringContainsString( 'Reconnect', $message );
+	}
+
 	// --- disconnect() --------------------------------------------------------
 
 	public function test_disconnect_clears_key_and_connection_options(): void {
@@ -458,6 +511,7 @@ final class ConnectManagerTest extends AbstractGuardLMSTestCase {
 				'verificationtoken' => 'verify-xyz',
 				'keyexpiresat'      => 1800000000,
 				'connected_siteurl' => 'https://site.test',
+				'authrejectedat'    => 1750000000,
 			)
 		);
 
@@ -474,6 +528,10 @@ final class ConnectManagerTest extends AbstractGuardLMSTestCase {
 		$this->assertSame( '', $saved['verificationtoken'] );
 		$this->assertSame( 0, $saved['keyexpiresat'] );
 		$this->assertSame( '', $saved['connected_siteurl'] );
+		// The revoke call above authenticates with the very key that was
+		// refused, so it can re-stamp the flag on its way out. A site with no
+		// key must not be told to reconnect a refused one.
+		$this->assertSame( 0, $saved['authrejectedat'] );
 	}
 
 	// --- disconnect(): SDK revocation ----------------------------------------
