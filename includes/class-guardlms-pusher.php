@@ -88,6 +88,16 @@ class GuardLMS_Pusher {
 		$code = (int) $response['code'];
 
 		if ( $code < 200 || $code >= 300 ) {
+			if ( GuardLMS_Connect_Manager::is_rejected_status( $code ) ) {
+				GuardLMS_Connect_Manager::note_auth_rejected();
+
+				return new WP_Error(
+					'guardlms_pushrejected',
+					GuardLMS_Connect_Manager::auth_rejected_message( $code ),
+					array( 'code' => $code )
+				);
+			}
+
 			if ( 422 === $code ) {
 				$registered = (string) GuardLMS_Options::get( 'connected_siteurl' );
 				$actual     = rtrim( home_url(), '/' );
@@ -122,6 +132,10 @@ class GuardLMS_Pusher {
 				'last_plugincount' => $plugincount,
 			)
 		);
+
+		// An accepted push proves the key is live again, whatever an earlier
+		// call concluded.
+		GuardLMS_Connect_Manager::note_auth_accepted();
 
 		return true;
 	}

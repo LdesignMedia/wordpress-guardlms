@@ -56,6 +56,9 @@ class GuardLMS_Options {
 			'connectstate_baseurl' => '',
 			'websiteid'            => 0,
 			'connectedat'          => 0,
+			// Unix timestamp of the first authenticated call GuardLMS rejected
+			// with 401/403 since the last accepted one. 0 = the key still works.
+			'authrejectedat'       => 0,
 		);
 	}
 
