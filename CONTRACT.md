@@ -184,6 +184,7 @@ redirect the exchange to another host. The push key is never logged.
 - `connectstate_baseurl` (string, default '')   — baseurl BOUND to the attempt
 - `websiteid` (int, default 0)                  — GuardLMS website id from the exchange
 - `connectedat` (int ts, default 0)             — when the Connect flow last succeeded (>0 == connected)
+- `authrejectedat` (int ts, default 0)          — first 401/403 on an authenticated call since the last accepted one (0 == key still works)
 
 ### REST route
 - namespace `guardlms/v1`, route `/connect-callback`, method GET, `permission_callback => __return_true`.
@@ -204,7 +205,14 @@ GuardLMS_Connect_Manager   (includes/class-guardlms-connect-manager.php)
         // ALWAYS clears connectstate/expires first (single use); '' || !hash_equals || expired -> WP_Error('guardlms_connectstate');
         // exchange(bound baseurl); on success store creds+options, queue initial push (+5s), purge_caches().
   public static function is_connected(): bool               // has_key() && connectedat>0
-  public static function disconnect(): void                 // Credentials::delete(); clear connectedat/websiteid/verificationtoken/keyexpiresat/connected_siteurl
+  public static function disconnect(): void                 // Credentials::delete(); clear connectedat/websiteid/verificationtoken/keyexpiresat/connected_siteurl/authrejectedat
+  const REJECTED_STATUSES = array( 401, 403 );              // authenticated-call statuses that mean "key refused"
+  public static function is_rejected_status( int $status ): bool
+  public static function is_auth_rejected(): bool           // authrejectedat > 0
+  public static function auth_rejected_at(): int            // first refusal ts, 0 when not refused
+  public static function note_auth_rejected(): void         // stamp authrejectedat once; NEVER deletes the key
+  public static function note_auth_accepted(): void         // clear authrejectedat after any accepted authenticated call
+  public static function auth_rejected_message( int $status ): string
   public static function purge_caches(): void               // w3tc_flush_all / litespeed_purge_all / rocket_clean_domain / wp_cache_clear_cache (function_exists guarded)
 
 GuardLMS_Rest              (includes/class-guardlms-rest.php)

@@ -30,6 +30,7 @@ require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-options.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-credentials.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-collector.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-http.php';
+require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-connect-manager.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-pusher.php';
 
 /**
@@ -268,6 +269,76 @@ final class PusherTest extends AbstractGuardLMSTestCase {
 		$message = $result->get_error_message();
 		$this->assertStringContainsString( 'https://actual.example', $message );
 		$this->assertStringContainsString( 'https://registered.example', $message );
+		$this->assertSame( array(), $this->settingsWrites() );
+	}
+
+	// --- Refused key: the connection is dead, not the push -------------------
+
+	/**
+	 * The 401 the WordPress site actually saw: the push key had been deleted
+	 * server-side, so every call was refused while the admin screen still read
+	 * "Connected". A bare "HTTP 401" gives an admin nothing to act on, so the
+	 * refusal is stamped and the message names the remedy.
+	 */
+	public function test_401_stamps_the_refusal_and_names_reconnect_as_the_fix(): void {
+		$this->stubEnvironment( array(), 'dead-key', $this->samplePlugins() );
+		$this->stubHttpResponse( 401, '{"message":"Unauthenticated."}' );
+
+		$result = GuardLMS_Pusher::push();
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'guardlms_pushrejected', $result->get_error_code() );
+		$this->assertSame( array( 'code' => 401 ), $result->get_error_data() );
+		$this->assertStringContainsString( 'Reconnect', $result->get_error_message() );
+
+		$writes = $this->settingsWrites();
+		$this->assertCount( 1, $writes );
+		$this->assertGreaterThan( 0, $writes[0][1]['authrejectedat'] );
+		// A refused key is never thrown away: recovery is the admin's call.
+		$this->assertSame( 0, (int) $writes[0][1]['lastpush'] );
+	}
+
+	/**
+	 * 403 is what a site gets once its website is deleted in the dashboard: the
+	 * token survives but loses its website binding. Same dead end, same remedy.
+	 */
+	public function test_403_stamps_the_refusal_too(): void {
+		$this->stubEnvironment( array(), 'unbound-key', $this->samplePlugins() );
+		$this->stubHttpResponse( 403, '{"message":"This API key is not bound to a website."}' );
+
+		$result = GuardLMS_Pusher::push();
+
+		$this->assertSame( 'guardlms_pushrejected', $result->get_error_code() );
+		$this->assertGreaterThan( 0, $this->settingsWrites()[0][1]['authrejectedat'] );
+	}
+
+	public function test_a_refusal_already_recorded_is_not_restamped(): void {
+		$this->stubEnvironment( array( 'authrejectedat' => 1750000000 ), 'dead-key', $this->samplePlugins() );
+		$this->stubHttpResponse( 401, '{"message":"Unauthenticated."}' );
+
+		GuardLMS_Pusher::push();
+
+		// The admin needs "since when", so the first refusal's timestamp stands.
+		$this->assertSame( array(), $this->settingsWrites() );
+	}
+
+	public function test_an_accepted_push_clears_a_recorded_refusal(): void {
+		$this->stubEnvironment( array( 'authrejectedat' => 1750000000 ), 'fresh-key', $this->samplePlugins() );
+		$this->stubHttpResponse( 200, '{"ok":true}' );
+
+		$this->assertTrue( GuardLMS_Pusher::push() );
+
+		$writes = $this->settingsWrites();
+		$this->assertSame( 0, (int) end( $writes )[1]['authrejectedat'] );
+	}
+
+	public function test_a_plain_server_error_leaves_the_connection_state_alone(): void {
+		$this->stubEnvironment( array(), 'valid-key', $this->samplePlugins() );
+		$this->stubHttpResponse( 500, '{"error":"boom"}' );
+
+		GuardLMS_Pusher::push();
+
+		// A backend outage is not a credential problem.
 		$this->assertSame( array(), $this->settingsWrites() );
 	}
 

@@ -47,6 +47,24 @@ class GuardLMS_Connect_Manager {
 	const STATE_TTL = 900;
 
 	/**
+	 * HTTP statuses that mean "GuardLMS refused this site's key".
+	 *
+	 * 401 is the key itself being gone or expired server-side; 403 is a key that
+	 * still authenticates but is no longer bound to a website (the binding is
+	 * cleared when the website is removed from the dashboard) or has lost the
+	 * ability the endpoint requires. Neither recovers without a reconnect, and
+	 * both otherwise leave the plugin reporting "Connected" forever.
+	 *
+	 * A reverse proxy answering 403 on its own would raise this state falsely.
+	 * That is deliberate and cheap: the state only adds a notice and a
+	 * Reconnect prompt, changes nothing about the stored key, and clears itself
+	 * on the next accepted call.
+	 *
+	 * @var int[]
+	 */
+	const REJECTED_STATUSES = array( 401, 403 );
+
+	/**
 	 * Begin a connect attempt: mint + store the state and return the consent URL.
 	 *
 	 * @return string The GuardLMS consent URL to redirect the admin browser to.
@@ -143,6 +161,9 @@ class GuardLMS_Connect_Manager {
 			'keyexpiresat'      => isset( $data['expires_at'] ) ? (int) strtotime( (string) $data['expires_at'] ) : 0,
 			'connectedat'       => time(),
 			'connected_siteurl' => $siteurl,
+			// The fresh key clears whatever refusal the previous one collected;
+			// reconnecting IS the recovery path this state points the admin at.
+			'authrejectedat'    => 0,
 			// A first-time connect enables reporting; a reconnect (key refresh)
 			// preserves the admin's current on/off choice rather than overriding it.
 			'enabled'           => $was_connected ? (bool) GuardLMS_Options::get( 'enabled' ) : true,
@@ -184,6 +205,87 @@ class GuardLMS_Connect_Manager {
 	}
 
 	/**
+	 * Whether GuardLMS refused this site's key on its last authenticated call.
+	 *
+	 * A site in this state still holds a key and still reads as connected
+	 * everywhere the key is used, which is exactly why the state is tracked:
+	 * without it the admin screen keeps promising a live connection (with a
+	 * key expiry a year out) while every push and settings refresh is refused.
+	 *
+	 * @return bool
+	 */
+	public static function is_auth_rejected(): bool {
+		return self::auth_rejected_at() > 0;
+	}
+
+	/**
+	 * When the first refused call since the last accepted one happened.
+	 *
+	 * @return int Unix timestamp, or 0 when the key is not in the refused state.
+	 */
+	public static function auth_rejected_at(): int {
+		return max( 0, (int) GuardLMS_Options::get( 'authrejectedat' ) );
+	}
+
+	/**
+	 * Whether an HTTP status from an authenticated call means the key was refused.
+	 *
+	 * @param int $status HTTP status code.
+	 * @return bool
+	 */
+	public static function is_rejected_status( int $status ): bool {
+		return in_array( $status, self::REJECTED_STATUSES, true );
+	}
+
+	/**
+	 * Record that GuardLMS refused this site's key.
+	 *
+	 * Keeps the FIRST refusal's timestamp: the admin needs to know since when
+	 * the site stopped reporting, not when the most recent retry ran.
+	 *
+	 * The key is deliberately NOT deleted. A backend outage that answers 401 for
+	 * an hour must not cost the site its credential, and reconnecting is the
+	 * admin's call, not the plugin's.
+	 *
+	 * @return void
+	 */
+	public static function note_auth_rejected(): void {
+		if ( self::is_auth_rejected() ) {
+			return;
+		}
+
+		GuardLMS_Options::set( 'authrejectedat', time() );
+	}
+
+	/**
+	 * Record that GuardLMS accepted this site's key, clearing any refused state.
+	 *
+	 * @return void
+	 */
+	public static function note_auth_accepted(): void {
+		if ( ! self::is_auth_rejected() ) {
+			return;
+		}
+
+		GuardLMS_Options::set( 'authrejectedat', 0 );
+	}
+
+	/**
+	 * The admin-facing explanation of a refused key, for the status block and
+	 * for the WP_Error a refused push or settings refresh returns.
+	 *
+	 * @param int $status The HTTP status GuardLMS answered with.
+	 * @return string
+	 */
+	public static function auth_rejected_message( int $status ): string {
+		return sprintf(
+			/* translators: %d: the HTTP status code returned by GuardLMS. */
+			__( 'GuardLMS no longer accepts this site\'s connection key (HTTP %d). The key was revoked, or the website it belonged to was removed from the GuardLMS dashboard. This site has stopped reporting: use Reconnect to issue a new key.', 'guardlms' ),
+			$status
+		);
+	}
+
+	/**
 	 * Tear down the connection: drop the key and clear the connection options.
 	 *
 	 * @return void
@@ -205,6 +307,11 @@ class GuardLMS_Connect_Manager {
 				'verificationtoken' => '',
 				'keyexpiresat'      => 0,
 				'connected_siteurl' => '',
+				// Written last on purpose: the revoke call above authenticates
+				// with the very key that may be refused, so it can set this
+				// flag on its way out. A disconnected site has no key to warn
+				// about.
+				'authrejectedat'    => 0,
 			)
 		);
 	}

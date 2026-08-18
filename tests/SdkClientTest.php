@@ -417,6 +417,84 @@ final class SdkClientTest extends AbstractGuardLMSTestCase {
 		$this->assertTrue( GuardLMS_Sdk_Config::get( 'backend_supported' ) );
 	}
 
+	/**
+	 * The live failure this state was built for. The site's push key had been
+	 * deleted server-side, so the real-time refresh answered 401 forever and
+	 * the admin screen offered "GuardLMS rejected the real-time settings
+	 * request (HTTP 401)" - a real-time message for a connection problem no
+	 * real-time setting can fix.
+	 *
+	 * @dataProvider rejectedStatusProvider
+	 */
+	public function test_a_refused_key_is_reported_as_a_connection_problem( int $status ): void {
+		$this->seedConnected();
+		$this->response = array(
+			'code' => $status,
+			'body' => '{"message":"Unauthenticated."}',
+		);
+
+		$result = GuardLMS_Sdk_Client::resolve( 'fetch' );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'guardlms_sdkrejected', $result->get_error_code() );
+		$this->assertStringContainsString( 'Reconnect', $result->get_error_message() );
+		$this->assertTrue( GuardLMS_Connect_Manager::is_auth_rejected() );
+
+		// Still a recorded refresh error, so the real-time section keeps saying
+		// why it is stale - it just says the right thing now.
+		$this->assertStringContainsString( 'Reconnect', GuardLMS_Sdk_Config::get( 'refresh_error' ) );
+		$this->assertTrue( GuardLMS_Sdk_Config::get( 'backend_supported' ) );
+	}
+
+	/**
+	 * @return array<string,int[]>
+	 */
+	public function rejectedStatusProvider(): array {
+		return array(
+			'key deleted server-side'   => array( 401 ),
+			'key no longer bound'       => array( 403 ),
+		);
+	}
+
+	public function test_a_refused_key_is_never_deleted_by_the_plugin(): void {
+		$this->seedConnected();
+		$this->response = array(
+			'code' => 401,
+			'body' => '{"message":"Unauthenticated."}',
+		);
+
+		GuardLMS_Sdk_Client::resolve( 'fetch' );
+
+		// A backend answering 401 for an hour must not cost the site its key.
+		$this->assertSame( 'push-key-abc', GuardLMS_Credentials::get_key() );
+		$this->assertTrue( GuardLMS_Connect_Manager::is_connected() );
+	}
+
+	public function test_a_successful_fetch_clears_a_recorded_refusal(): void {
+		$this->seedConnected();
+		$this->store['guardlms_settings']['authrejectedat'] = 1750000000;
+		$this->response                                     = array(
+			'code' => 200,
+			'body' => $this->payloadBody(),
+		);
+
+		GuardLMS_Sdk_Client::resolve( 'fetch' );
+
+		$this->assertFalse( GuardLMS_Connect_Manager::is_auth_rejected() );
+	}
+
+	public function test_a_500_leaves_the_connection_state_alone(): void {
+		$this->seedConnected();
+		$this->response = array(
+			'code' => 500,
+			'body' => 'Server Error',
+		);
+
+		GuardLMS_Sdk_Client::resolve( 'fetch' );
+
+		$this->assertFalse( GuardLMS_Connect_Manager::is_auth_rejected() );
+	}
+
 	public function test_an_unparseable_body_records_an_error(): void {
 		$this->seedConnected();
 		$this->response = array(

@@ -176,6 +176,7 @@ class GuardLMS_Settings {
 			}
 			.guardlms-badge-connected { background: #d7f5df; color: #0a6b31; }
 			.guardlms-badge-disconnected { background: #fcdada; color: #a02020; }
+			.guardlms-badge-rejected { background: #fcf0d3; color: #8a5300; }
 		</style>
 		<?php
 	}
