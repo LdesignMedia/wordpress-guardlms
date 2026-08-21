@@ -1,0 +1,75 @@
+name: Deploy to WordPress.org
+
+# Pushing a version tag (e.g. `0.2.2`) releases that revision:
+#   1. the full test suite and coding-standards check must pass first;
+#   2. the plugin is committed to WordPress.org SVN (trunk + tags/<version>)
+#      with the files listed in .distignore excluded;
+#   3. the same zip that went to SVN is attached to a GitHub release.
+#
+# Requirements before the first run:
+#   - repository secrets SVN_USERNAME and SVN_PASSWORD (WordPress.org
+#     credentials, granted once the plugin is approved);
+#   - the tag must match the Version header in guardlms.php and the
+#     Stable tag in readme.txt.
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+
+jobs:
+  test:
+    name: Test before deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, curl, json, zip, intl
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+
+      - name: Run coding standards check
+        run: composer phpcs
+
+      - name: Run test suite
+        run: composer test
+
+  deploy:
+    name: Deploy tag to SVN
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify the tag matches the plugin version
+        run: |
+          plugin_version=$(sed -n 's/^ \* Version: *//p' guardlms.php)
+          stable_tag=$(sed -n 's/^Stable tag: *//p' readme.txt)
+          echo "tag=${GITHUB_REF_NAME} plugin=${plugin_version} stable=${stable_tag}"
+          [ "${GITHUB_REF_NAME}" = "${plugin_version}" ] || { echo "Tag does not match the Version header in guardlms.php."; exit 1; }
+          [ "${GITHUB_REF_NAME}" = "${stable_tag}" ] || { echo "Tag does not match the Stable tag in readme.txt."; exit 1; }
+
+      - name: Deploy to WordPress.org SVN
+        id: deploy
+        uses: 10up/action-wordpress-plugin-deploy@stable
+        with:
+          generate-zip: true
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+          SLUG: guardlms
+
+      - name: Attach the zip to a GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.deploy.outputs.zip-path }}
+          generate_release_notes: true
