@@ -10,7 +10,7 @@
         "inventory",
         "guardlms"
     ],
-    "homepage": "https://app.guardlms.com",
+    "homepage": "https://guardlms.com",
     "require": {
         "php": ">=7.4"
     },

@@ -91,7 +91,7 @@ final class PusherTest extends AbstractGuardLMSTestCase {
 		$merged = array_merge(
 			array(
 				'enabled'           => true,
-				'baseurl'           => 'https://app.guardlms.com',
+				'baseurl'           => 'https://dashboard.guardlms.com',
 				'pushpath'          => '/api/externalpush/wordpress',
 				'sendconfig'        => false,
 				'verificationtoken' => '',
