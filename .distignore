@@ -1,0 +1,20 @@
+# Development files excluded from the distributed plugin zip
+# (used by `wp dist-archive` and the release workflow).
+.distignore
+.git
+.gitignore
+.github
+.phpunit.result.cache
+.wp-env.json
+# Generated PHPUnit fixture (see .gitignore): stand-in wp-admin/includes/plugin.php
+# left behind at the repo root after a local test run.
+wp-admin
+CONTRACT.md
+README.md
+composer.json
+composer.lock
+node_modules
+phpcs.xml.dist
+phpunit.xml.dist
+tests
+vendor
