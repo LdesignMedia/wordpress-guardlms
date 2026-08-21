@@ -61,10 +61,13 @@ if ( ! defined( 'GUARDLMS_VERSION' ) ) {
 	unset( $guardlms_header, $guardlms_matches );
 }
 if ( ! defined( 'GUARDLMS_DEFAULT_BASEURL' ) ) {
-	define( 'GUARDLMS_DEFAULT_BASEURL', 'https://app.guardlms.com' );
+	define( 'GUARDLMS_DEFAULT_BASEURL', 'https://dashboard.guardlms.com' );
 }
 if ( ! defined( 'GUARDLMS_DEFAULT_PUSHPATH' ) ) {
 	define( 'GUARDLMS_DEFAULT_PUSHPATH', '/api/externalpush/wordpress' );
+}
+if ( ! defined( 'GUARDLMS_LEGACY_BASEURL' ) ) {
+	define( 'GUARDLMS_LEGACY_BASEURL', 'https://app.guardlms.com' );
 }
 
 // WP-Cron hook names.

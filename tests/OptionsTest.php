@@ -61,6 +61,21 @@ final class OptionsTest extends AbstractGuardLMSTestCase {
 		$this->assertSame( 0, $all['lastpush'] );
 	}
 
+	public function test_stored_legacy_default_baseurl_is_remapped(): void {
+		// Releases before 0.2.1 persisted the never-provisioned app. host on
+		// activation and settings save; it must read as the live default.
+		Functions\when( 'get_option' )->justReturn( array( 'baseurl' => GUARDLMS_LEGACY_BASEURL ) );
+
+		$this->assertSame( GUARDLMS_DEFAULT_BASEURL, GuardLMS_Options::stored()['baseurl'] );
+		$this->assertSame( GUARDLMS_DEFAULT_BASEURL, GuardLMS_Options::get( 'baseurl' ) );
+	}
+
+	public function test_stored_legacy_default_baseurl_with_trailing_slash_is_remapped(): void {
+		Functions\when( 'get_option' )->justReturn( array( 'baseurl' => GUARDLMS_LEGACY_BASEURL . '/' ) );
+
+		$this->assertSame( GUARDLMS_DEFAULT_BASEURL, GuardLMS_Options::get( 'baseurl' ) );
+	}
+
 	public function test_all_falls_back_to_defaults_when_stored_is_not_array(): void {
 		Functions\when( 'get_option' )->justReturn( false );
 

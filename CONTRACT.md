@@ -8,7 +8,7 @@ No PHP namespace — use the classic `GuardLMS_` class prefix (keeps WPCS filena
 ## Constants (defined in guardlms.php)
 - `GUARDLMS_VERSION` (string, e.g. '0.1.0')
 - `GUARDLMS_PLUGIN_FILE` (__FILE__), `GUARDLMS_PLUGIN_DIR` (plugin_dir_path), `GUARDLMS_PLUGIN_URL`
-- `GUARDLMS_DEFAULT_BASEURL` = 'https://app.guardlms.com'
+- `GUARDLMS_DEFAULT_BASEURL` = 'https://dashboard.guardlms.com'
 - `GUARDLMS_DEFAULT_PUSHPATH` = '/api/externalpush/wordpress'
 - `GUARDLMS_DAILY_HOOK` = 'guardlms_daily_push'
 - `GUARDLMS_INITIAL_HOOK` = 'guardlms_initial_push'

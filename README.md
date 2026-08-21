@@ -1,6 +1,6 @@
 # GuardLMS for WordPress
 
-A WordPress plugin that reports the site to [GuardLMS](https://app.guardlms.com)
+A WordPress plugin that reports the site to [GuardLMS](https://guardlms.com)
 for security monitoring. Once a day the plugin pushes the WordPress version, the
 installed plugin and theme inventory and the server environment to GuardLMS over
 HTTPS. GuardLMS matches the site against known CVEs.

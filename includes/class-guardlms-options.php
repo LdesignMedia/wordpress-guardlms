@@ -76,7 +76,17 @@ class GuardLMS_Options {
 			$stored = array();
 		}
 
-		return array_merge( self::defaults(), $stored );
+		$settings = array_merge( self::defaults(), $stored );
+
+		// Releases before 0.2.1 seeded https://app.guardlms.com, a host that was
+		// never provisioned in production, so activation and the settings page
+		// persisted a dead endpoint. Only that exact value is remapped; a
+		// deliberately overridden base URL (self-hosted) is left alone.
+		if ( rtrim( trim( (string) $settings['baseurl'] ), '/' ) === GUARDLMS_LEGACY_BASEURL ) {
+			$settings['baseurl'] = GUARDLMS_DEFAULT_BASEURL;
+		}
+
+		return $settings;
 	}
 
 	/**

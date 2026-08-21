@@ -42,12 +42,12 @@ final class HttpTest extends AbstractGuardLMSTestCase {
 		Functions\when( 'wp_remote_retrieve_body' )->justReturn( 'created' );
 
 		$result = GuardLMS_Http::post(
-			'https://app.guardlms.com/api/externalpush/wordpress',
+			'https://dashboard.guardlms.com/api/externalpush/wordpress',
 			'{"platform":"wordpress"}',
 			array( 'Authorization' => 'Bearer TOKEN-123' )
 		);
 
-		$this->assertSame( 'https://app.guardlms.com/api/externalpush/wordpress', $captured['url'] );
+		$this->assertSame( 'https://dashboard.guardlms.com/api/externalpush/wordpress', $captured['url'] );
 
 		$args = $captured['args'];
 		// SSRF / redirect hardening.
@@ -76,7 +76,7 @@ final class HttpTest extends AbstractGuardLMSTestCase {
 		$error = new WP_Error( 'http_request_failed', 'could not resolve host' );
 		Functions\when( 'wp_remote_post' )->justReturn( $error );
 
-		$result = GuardLMS_Http::post( 'https://app.guardlms.com/x', '{}' );
+		$result = GuardLMS_Http::post( 'https://dashboard.guardlms.com/x', '{}' );
 
 		$this->assertInstanceOf( WP_Error::class, $result );
 		$this->assertSame( $error, $result );

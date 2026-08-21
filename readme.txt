@@ -4,7 +4,7 @@ Tags: security, cve, monitoring, vulnerability
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.2.0
+Stable tag: 0.2.1
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -14,7 +14,7 @@ Reports your WordPress core version, plugin/theme inventory, and server/PHP envi
 
 GuardLMS keeps your WordPress installation under continuous vulnerability monitoring. Once
 configured, the plugin sends a daily snapshot of your site's software inventory to the GuardLMS
-service (https://app.guardlms.com), where it is matched against a database of known CVEs
+service (https://dashboard.guardlms.com), where it is matched against a database of known CVEs
 affecting WordPress core, plugins, and themes. If a vulnerable component is detected, it is
 surfaced in your GuardLMS dashboard so you can patch or remove it before it is exploited.
 
@@ -39,7 +39,7 @@ push key and verifies ownership automatically. No API key to copy.
 
 = Third Party Services =
 
-This plugin relies on a third-party service, **GuardLMS** (https://app.guardlms.com), to
+This plugin relies on a third-party service, **GuardLMS** (https://dashboard.guardlms.com), to
 perform CVE and vulnerability monitoring for your site. This section discloses exactly what is
 shared with that service, in line with the WordPress.org plugin guidelines.
 
@@ -131,7 +131,7 @@ deferring or blocking the script.
 = Do I need a GuardLMS account? =
 
 Yes. You need a GuardLMS account. A free account is enough. Register at
-https://app.guardlms.com, or create one during the connect flow.
+https://dashboard.guardlms.com, or create one during the connect flow.
 
 = What happens if I don't connect the site? =
 
@@ -157,6 +157,13 @@ outgoing payload data. You may alternatively define `GUARDLMS_PUSH_KEY` as a con
 entirely.
 
 == Changelog ==
+
+= 0.2.1 =
+* Fixed the default GuardLMS endpoint: the plugin now talks to
+  https://dashboard.guardlms.com. Earlier releases shipped https://app.guardlms.com,
+  a host that was never put into service, so connecting and the daily push failed on
+  the default configuration. Sites that kept the old default are moved over
+  automatically; a custom (self-hosted) base URL is left untouched.
 
 = 0.2.0 =
 * Added optional real-time monitoring: a GuardLMS script on your public pages reports

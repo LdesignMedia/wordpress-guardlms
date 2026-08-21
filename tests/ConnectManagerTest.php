@@ -576,7 +576,7 @@ final class ConnectManagerTest extends AbstractGuardLMSTestCase {
 		GuardLMS_Connect_Manager::disconnect();
 
 		$this->assertCount( 1, $seen, 'disconnect() did not call the revoke endpoint.' );
-		$this->assertSame( 'https://app.guardlms.com/api/integrations/sdk-key', $seen[0]['url'] );
+		$this->assertSame( 'https://dashboard.guardlms.com/api/integrations/sdk-key', $seen[0]['url'] );
 		$this->assertSame( 'revoke', json_decode( $seen[0]['body'], true )['action'] );
 		// The push key was present and usable when the revoke went out.
 		$this->assertSame( 'Bearer push-key-abc', $seen[0]['auth'] );
