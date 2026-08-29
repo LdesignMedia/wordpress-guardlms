@@ -47,6 +47,7 @@ class GuardLMS_Plugin {
 		require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-sdk-injector.php';
 		require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-connect-manager.php';
 		require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-rest.php';
+		require_once GUARDLMS_PLUGIN_DIR . 'includes/admin/class-guardlms-admin-notice.php';
 		require_once GUARDLMS_PLUGIN_DIR . 'includes/admin/class-guardlms-settings.php';
 		require_once GUARDLMS_PLUGIN_DIR . 'includes/admin/class-guardlms-connect-page.php';
 		require_once GUARDLMS_PLUGIN_DIR . 'includes/admin/class-guardlms-realtime-page.php';
@@ -74,6 +75,7 @@ class GuardLMS_Plugin {
 		add_action( 'admin_menu', array( 'GuardLMS_Settings', 'register' ) );
 		add_action( 'admin_init', array( 'GuardLMS_Settings', 'register' ) );
 		add_action( 'admin_init', array( 'GuardLMS_Settings', 'maybe_notice' ) );
+		add_action( 'admin_enqueue_scripts', array( 'GuardLMS_Settings', 'enqueue_assets' ) );
 
 		// Purge page caches AFTER the settings write lands, never during
 		// sanitize() - see GuardLMS_Settings::maybe_purge_on_toggle().

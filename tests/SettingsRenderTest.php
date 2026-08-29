@@ -25,6 +25,7 @@
 use Brain\Monkey\Functions;
 
 require_once __DIR__ . '/AbstractGuardLMSTestCase.php';
+require_once GUARDLMS_PLUGIN_DIR . 'includes/admin/class-guardlms-admin-notice.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-options.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-credentials.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-http.php';
@@ -476,8 +477,12 @@ final class SettingsRenderTest extends AbstractGuardLMSTestCase {
 		$this->assertStringContainsString( 'guardlms_sdk_refresh', $html );
 		$this->assertStringContainsString( 'guardlms_sdk_selftest', $html );
 		$this->assertStringContainsString( 'guardlms_sdk_rotate', $html );
-		// Rotation is destructive enough to warrant a confirmation.
-		$this->assertStringContainsString( 'onsubmit="return confirm(', $html );
+		// Rotation is destructive enough to warrant a confirmation. The prompt
+		// is a data attribute picked up by the enqueued admin script, never an
+		// inline event handler (WordPress.org review: no inline JS).
+		$this->assertStringContainsString( 'data-guardlms-confirm="', $html );
+		$this->assertStringContainsString( 'This replaces the key this site currently serves.', $html );
+		$this->assertStringNotContainsString( 'onsubmit=', $html );
 	}
 
 	// --- AC D6: sanitize() and the cache purge -------------------------------

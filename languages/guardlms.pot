@@ -2,7 +2,7 @@
 # This file is distributed under the GPLv3.
 msgid ""
 msgstr ""
-"Project-Id-Version: GuardLMS 0.2.1\n"
+"Project-Id-Version: GuardLMS 0.2.2\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/guardlms\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -279,7 +279,7 @@ msgid "Site information pushed to GuardLMS successfully."
 msgstr ""
 
 #: includes/admin/class-guardlms-settings.php:494
-msgid "GuardLMS detected that this site URL changed and has disconnected the stored API key. Re-enter your key to reconnect."
+msgid "GuardLMS detected that this site URL changed and has disconnected the site. Connect it again from the GuardLMS settings."
 msgstr ""
 
 #. translators: %s: key expiry date.

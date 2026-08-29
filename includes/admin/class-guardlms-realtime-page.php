@@ -236,11 +236,15 @@ class GuardLMS_Realtime_Page {
 			$message = __( 'Analytics is not included in your GuardLMS plan - error monitoring is still active.', 'guardlms' );
 
 			if ( '' !== $baseurl ) {
-				printf(
-					'<div class="notice notice-info inline"><p>%1$s <a href="%2$s" target="_blank" rel="noopener noreferrer">%3$s</a></p></div>',
-					esc_html( $message ),
-					esc_url( $baseurl . '/billing' ),
-					esc_html__( 'View plans', 'guardlms' )
+				GuardLMS_Admin_Notice::render(
+					'info',
+					$message,
+					array(
+						'inline'        => true,
+						'link_url'      => $baseurl . '/billing',
+						'link_text'     => __( 'View plans', 'guardlms' ),
+						'link_external' => true,
+					)
 				);
 			} else {
 				self::notice( 'info', $message );
@@ -340,8 +344,8 @@ class GuardLMS_Realtime_Page {
 	private static function render_buttons( string $sdk_key, bool $injecting ): void {
 		$action_url = admin_url( 'admin-post.php' );
 		?>
-		<div style="margin-top:1em">
-			<form action="<?php echo esc_url( $action_url ); ?>" method="post" style="display:inline-block">
+		<div class="guardlms-actions">
+			<form action="<?php echo esc_url( $action_url ); ?>" method="post">
 				<input type="hidden" name="action" value="<?php echo esc_attr( self::REFRESH_ACTION ); ?>">
 				<?php
 				wp_nonce_field( self::REFRESH_ACTION );
@@ -351,7 +355,7 @@ class GuardLMS_Realtime_Page {
 
 			<?php if ( $injecting ) : ?>
 				<?php // Offered only while the SDK is genuinely on the page: the probe's only failure message blames another plugin, which is a fabricated accusation whenever the plugin itself chose not to inject. ?>
-				<form action="<?php echo esc_url( $action_url ); ?>" method="post" style="display:inline-block;margin-left:8px">
+				<form action="<?php echo esc_url( $action_url ); ?>" method="post">
 					<input type="hidden" name="action" value="<?php echo esc_attr( self::SELFTEST_ACTION ); ?>">
 					<?php
 					wp_nonce_field( self::SELFTEST_ACTION );
@@ -361,8 +365,9 @@ class GuardLMS_Realtime_Page {
 			<?php endif; ?>
 
 			<?php if ( '' !== $sdk_key ) : ?>
-				<form action="<?php echo esc_url( $action_url ); ?>" method="post" style="display:inline-block;margin-left:8px"
-					onsubmit="return confirm(<?php echo esc_attr( wp_json_encode( __( 'This replaces the key this site currently serves. Pages cached before the change keep sending the old key until the cache clears. Continue?', 'guardlms' ) ) ); ?>);">
+				<?php // The confirmation prompt is read by assets/admin.js; no inline handler. ?>
+				<form action="<?php echo esc_url( $action_url ); ?>" method="post"
+					data-guardlms-confirm="<?php esc_attr_e( 'This replaces the key this site currently serves. Pages cached before the change keep sending the old key until the cache clears. Continue?', 'guardlms' ); ?>">
 					<input type="hidden" name="action" value="<?php echo esc_attr( self::ROTATE_ACTION ); ?>">
 					<?php
 					wp_nonce_field( self::ROTATE_ACTION );
@@ -476,11 +481,7 @@ class GuardLMS_Realtime_Page {
 		$type    = isset( $notice['type'] ) ? (string) $notice['type'] : 'success';
 		$message = isset( $notice['message'] ) ? (string) $notice['message'] : '';
 
-		printf(
-			'<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>',
-			esc_attr( $type ),
-			esc_html( $message )
-		);
+		GuardLMS_Admin_Notice::render( $type, $message, array( 'dismissible' => true ) );
 	}
 
 	/**
@@ -521,9 +522,7 @@ class GuardLMS_Realtime_Page {
 	 * @return void
 	 */
 	private static function redirect_back(): void {
-		wp_safe_redirect(
-			add_query_arg( array( 'page' => self::PAGE ), admin_url( 'options-general.php' ) )
-		);
+		wp_safe_redirect( GuardLMS_Settings::url() );
 		exit;
 	}
 
@@ -535,10 +534,6 @@ class GuardLMS_Realtime_Page {
 	 * @return void
 	 */
 	private static function notice( string $type, string $message ): void {
-		printf(
-			'<div class="notice notice-%1$s inline"><p>%2$s</p></div>',
-			esc_attr( $type ),
-			esc_html( $message )
-		);
+		GuardLMS_Admin_Notice::render( $type, $message, array( 'inline' => true ) );
 	}
 }

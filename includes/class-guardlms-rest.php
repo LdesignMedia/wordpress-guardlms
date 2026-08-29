@@ -112,15 +112,7 @@ class GuardLMS_Rest {
 			set_transient( GuardLMS_Connect_Page::NOTICE_TRANSIENT, $notice, MINUTE_IN_SECONDS );
 		}
 
-		wp_safe_redirect(
-			add_query_arg(
-				array(
-					'page'             => GuardLMS_Connect_Page::PAGE,
-					'guardlms_connect' => $flag,
-				),
-				admin_url( 'options-general.php' )
-			)
-		);
+		wp_safe_redirect( GuardLMS_Settings::url( array( 'guardlms_connect' => $flag ) ) );
 		exit;
 	}
 

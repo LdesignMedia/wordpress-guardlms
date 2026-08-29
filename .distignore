@@ -3,6 +3,8 @@
 .distignore
 .git
 .gitignore
+.omc
+.claude
 .github
 .phpunit.result.cache
 .wp-env.json

@@ -157,7 +157,7 @@ class GuardLMS_Connect_Page {
 		$lastpush  = (int) GuardLMS_Options::get( 'lastpush' );
 		$format    = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
 		?>
-		<table class="widefat striped" style="max-width:640px;margin-top:1em">
+		<table class="widefat striped guardlms-details">
 			<tbody>
 				<tr>
 					<th scope="row"><?php esc_html_e( 'Connected at', 'guardlms' ); ?></th>
@@ -202,8 +202,8 @@ class GuardLMS_Connect_Page {
 	public static function render_buttons(): void {
 		$connected = GuardLMS_Connect_Manager::is_connected();
 		?>
-			<div style="margin-top:1em">
-				<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post" style="display:inline-block">
+			<div class="guardlms-actions">
+				<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post">
 					<input type="hidden" name="action" value="<?php echo esc_attr( self::START_ACTION ); ?>">
 					<?php
 					wp_nonce_field( self::START_ACTION );
@@ -217,7 +217,7 @@ class GuardLMS_Connect_Page {
 				</form>
 
 				<?php if ( $connected ) : ?>
-					<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post" style="display:inline-block;margin-left:8px">
+					<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post">
 						<input type="hidden" name="action" value="<?php echo esc_attr( self::DISCONNECT_ACTION ); ?>">
 						<?php
 						wp_nonce_field( self::DISCONNECT_ACTION );
@@ -274,15 +274,7 @@ class GuardLMS_Connect_Page {
 			MINUTE_IN_SECONDS
 		);
 
-		wp_safe_redirect(
-			add_query_arg(
-				array(
-					'page'             => self::PAGE,
-					'guardlms_connect' => 'disconnected',
-				),
-				admin_url( 'options-general.php' )
-			)
-		);
+		wp_safe_redirect( GuardLMS_Settings::url( array( 'guardlms_connect' => 'disconnected' ) ) );
 		exit;
 	}
 
@@ -317,13 +309,9 @@ class GuardLMS_Connect_Page {
 		}
 		delete_transient( self::NOTICE_TRANSIENT );
 
-		$class   = ( isset( $notice['type'] ) && 'error' === $notice['type'] ) ? 'notice-error' : 'notice-success';
+		$type    = ( isset( $notice['type'] ) && 'error' === $notice['type'] ) ? 'error' : 'success';
 		$message = isset( $notice['message'] ) ? (string) $notice['message'] : '';
 
-		printf(
-			'<div class="notice %1$s is-dismissible"><p>%2$s</p></div>',
-			esc_attr( $class ),
-			esc_html( $message )
-		);
+		GuardLMS_Admin_Notice::render( $type, $message, array( 'dismissible' => true ) );
 	}
 }

@@ -24,6 +24,7 @@
  */
 
 require_once __DIR__ . '/AbstractGuardLMSTestCase.php';
+require_once GUARDLMS_PLUGIN_DIR . 'includes/admin/class-guardlms-admin-notice.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-options.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-credentials.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-sdk-client.php';
