@@ -45,12 +45,15 @@ class GuardLMS_Settings {
 	const PUSH_ACT = 'guardlms_push_now';
 
 	/**
-	 * Hook suffix WordPress assigns to the options page registered under
-	 * Settings with slug PAGE; what `admin_enqueue_scripts` receives.
+	 * Hook suffix WordPress assigned to the options page in register().
+	 *
+	 * Kept from add_options_page() rather than re-derived from the slug: a
+	 * menu-editor plugin or a later move to another parent menu changes it,
+	 * and `admin_enqueue_scripts` hands the real one back for comparison.
 	 *
 	 * @var string
 	 */
-	const SCREEN = 'settings_page_' . self::PAGE;
+	private static $hook_suffix = '';
 
 	/**
 	 * The settings option name.
@@ -88,7 +91,9 @@ class GuardLMS_Settings {
 		}
 		$initialized = true;
 
-		add_options_page(
+		// False when the current user lacks the capability: the screen is not
+		// theirs, so the stylesheet never matching is the correct outcome.
+		self::$hook_suffix = (string) add_options_page(
 			__( 'GuardLMS', 'guardlms' ),
 			__( 'GuardLMS', 'guardlms' ),
 			'manage_options',
@@ -174,7 +179,7 @@ class GuardLMS_Settings {
 	 * @return void
 	 */
 	public static function enqueue_assets( $hook_suffix ) {
-		if ( self::SCREEN !== $hook_suffix ) {
+		if ( '' === self::$hook_suffix || self::$hook_suffix !== $hook_suffix ) {
 			return;
 		}
 
@@ -183,6 +188,22 @@ class GuardLMS_Settings {
 			GUARDLMS_PLUGIN_URL . 'assets/admin.css',
 			array(),
 			GUARDLMS_VERSION
+		);
+	}
+
+	/**
+	 * URL of the GuardLMS settings screen, optionally with extra query args.
+	 *
+	 * The one place that knows where the screen lives; every redirect and
+	 * notice link goes through here.
+	 *
+	 * @param array $args Extra query args merged after `page`.
+	 * @return string
+	 */
+	public static function url( array $args = array() ) {
+		return add_query_arg(
+			array_merge( array( 'page' => self::PAGE ), $args ),
+			admin_url( 'options-general.php' )
 		);
 	}
 
@@ -467,13 +488,11 @@ class GuardLMS_Settings {
 
 		// Push now only exists on the advanced view, so return the admin to it.
 		wp_safe_redirect(
-			add_query_arg(
+			self::url(
 				array(
-					'page'          => self::PAGE,
 					'advanced'      => 1,
 					'guardlms_push' => $type,
-				),
-				admin_url( 'options-general.php' )
+				)
 			)
 		);
 		exit;
@@ -518,7 +537,14 @@ class GuardLMS_Settings {
 		// http is the same site, not a clone, and must not lose its key.
 		if ( '' !== $connected_url && self::host_and_path( $current_url ) !== self::host_and_path( $connected_url ) ) {
 			GuardLMS_Credentials::delete();
-			GuardLMS_Options::set( 'connected_siteurl', '' );
+			// The expiry belongs to the key just dropped: clear it in the same
+			// write so branch (b) below cannot warn about a key that is gone.
+			GuardLMS_Options::update(
+				array(
+					'connected_siteurl' => '',
+					'keyexpiresat'      => 0,
+				)
+			);
 
 			add_action( 'admin_notices', array( __CLASS__, 'render_url_changed_notice' ) );
 		}
@@ -540,17 +566,20 @@ class GuardLMS_Settings {
 			return;
 		}
 
+		// The site is disconnected at this point, so the screen offers
+		// "Connect", not "Reconnect".
 		self::render_dismissible_warning(
-			__( 'GuardLMS detected that this site URL changed and has disconnected the stored API key. Re-enter your key to reconnect.', 'guardlms' )
+			__( 'GuardLMS detected that this site URL changed and has disconnected the site. Connect it again from the GuardLMS settings.', 'guardlms' ),
+			__( 'Connect', 'guardlms' )
 		);
 	}
 
 	/**
 	 * Render the "key expires soon" notice.
 	 *
-	 * Re-reads the expiry at render time: the key may have been disconnected
-	 * between `admin_init` and `admin_notices` in the same request, and a
-	 * warning about a key that no longer exists only confuses.
+	 * Re-checks the key and its expiry at render time: the key may have been
+	 * disconnected between `admin_init` and `admin_notices` in the same
+	 * request, and a warning about a key that no longer exists only confuses.
 	 *
 	 * @return void
 	 */
@@ -560,7 +589,7 @@ class GuardLMS_Settings {
 		}
 
 		$expires = (int) GuardLMS_Options::get( 'keyexpiresat' );
-		if ( $expires <= 0 ) {
+		if ( $expires <= 0 || ! GuardLMS_Credentials::has_key() ) {
 			return;
 		}
 
@@ -569,22 +598,27 @@ class GuardLMS_Settings {
 				/* translators: %s: key expiry date. */
 				__( 'Your GuardLMS API key expires on %s. Please reconnect to obtain a fresh key before it expires.', 'guardlms' ),
 				wp_date( get_option( 'date_format' ), $expires )
-			)
+			),
+			__( 'Reconnect', 'guardlms' )
 		);
 	}
 
 	/**
 	 * Print one dismissible warning notice with a link to the settings screen.
 	 *
-	 * @param string $message Plain-text message; escaped here.
+	 * @param string $message   Plain-text message; escaped by the renderer.
+	 * @param string $link_text Label of the link to the settings screen.
 	 * @return void
 	 */
-	private static function render_dismissible_warning( $message ) {
-		printf(
-			'<div class="notice notice-warning is-dismissible"><p>%1$s <a href="%2$s">%3$s</a></p></div>',
-			esc_html( $message ),
-			esc_url( add_query_arg( array( 'page' => self::PAGE ), admin_url( 'options-general.php' ) ) ),
-			esc_html__( 'Reconnect', 'guardlms' )
+	private static function render_dismissible_warning( $message, $link_text ) {
+		GuardLMS_Admin_Notice::render(
+			'warning',
+			$message,
+			array(
+				'dismissible' => true,
+				'link_url'    => self::url(),
+				'link_text'   => $link_text,
+			)
 		);
 	}
 
@@ -601,14 +635,10 @@ class GuardLMS_Settings {
 		}
 		delete_transient( $key );
 
-		$class   = ( isset( $result['type'] ) && 'success' === $result['type'] ) ? 'notice-success' : 'notice-error';
+		$type    = ( isset( $result['type'] ) && 'success' === $result['type'] ) ? 'success' : 'error';
 		$message = isset( $result['message'] ) ? (string) $result['message'] : '';
 
-		printf(
-			'<div class="notice %1$s is-dismissible"><p>%2$s</p></div>',
-			esc_attr( $class ),
-			esc_html( $message )
-		);
+		GuardLMS_Admin_Notice::render( $type, $message, array( 'dismissible' => true ) );
 	}
 
 	/**

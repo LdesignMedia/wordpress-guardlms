@@ -26,6 +26,7 @@ use Brain\Monkey\Actions;
 use Brain\Monkey\Functions;
 
 require_once __DIR__ . '/AbstractGuardLMSTestCase.php';
+require_once GUARDLMS_PLUGIN_DIR . 'includes/admin/class-guardlms-admin-notice.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-options.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-credentials.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-http.php';
@@ -150,6 +151,42 @@ final class SettingsNoticesTest extends AbstractGuardLMSTestCase {
 		GuardLMS_Settings::maybe_notice();
 	}
 
+	/**
+	 * A site move drops the key, so a warning that the (now deleted) key is
+	 * about to expire must not be queued alongside the URL-changed notice.
+	 */
+	public function test_a_site_move_drops_the_expiry_notice_along_with_the_key(): void {
+		$this->seedConnected( time() + 10 * DAY_IN_SECONDS );
+		$this->store['guardlms_settings']['connected_siteurl'] = 'https://old.site.test';
+
+		Actions\expectAdded( 'admin_notices' )
+			->once()
+			->with( array( 'GuardLMS_Settings', 'render_url_changed_notice' ) );
+
+		GuardLMS_Settings::maybe_notice();
+
+		$this->assertSame( 0, $this->store['guardlms_settings']['keyexpiresat'] );
+		$this->assertSame( '', $this->store['guardlms_settings']['connected_siteurl'] );
+	}
+
+	// -- Settings URL ---------------------------------------------------------
+
+	public function test_settings_url_targets_the_options_page(): void {
+		$this->assertSame( self::SETTINGS_URL, GuardLMS_Settings::url() );
+	}
+
+	public function test_settings_url_keeps_the_page_when_extra_args_are_added(): void {
+		$this->assertSame(
+			self::SETTINGS_URL . '&advanced=1&guardlms_push=ok',
+			GuardLMS_Settings::url(
+				array(
+					'advanced'      => 1,
+					'guardlms_push' => 'ok',
+				)
+			)
+		);
+	}
+
 	// -- Capability gate ------------------------------------------------------
 
 	public function test_expiry_notice_is_hidden_from_users_who_cannot_manage_options(): void {
@@ -185,7 +222,9 @@ final class SettingsNoticesTest extends AbstractGuardLMSTestCase {
 
 	public function test_expiry_notice_renders_nothing_once_the_key_is_gone(): void {
 		// Registered on admin_init, but the key was disconnected later in the
-		// same request: there is nothing left to warn about.
+		// same request: there is nothing left to warn about, even when a stale
+		// expiry timestamp is still on file.
+		$this->store['guardlms_settings'] = array( 'keyexpiresat' => 1800000000 );
 		Functions\when( 'current_user_can' )->justReturn( true );
 
 		$html = $this->render( array( 'GuardLMS_Settings', 'render_expiry_notice' ) );
@@ -201,6 +240,11 @@ final class SettingsNoticesTest extends AbstractGuardLMSTestCase {
 		$this->assertStringContainsString( 'notice notice-warning is-dismissible', $html );
 		$this->assertStringContainsString( 'site URL changed', $html );
 		$this->assertStringContainsString( 'href="' . self::SETTINGS_URL . '"', $html );
-		$this->assertStringContainsString( '>Reconnect<', $html );
+
+		// After the clone guard the site is disconnected: the settings screen
+		// offers "Connect", not "Reconnect", and there is no key field to
+		// re-enter anything into.
+		$this->assertStringContainsString( '>Connect<', $html );
+		$this->assertStringNotContainsString( 'Re-enter', $html );
 	}
 }

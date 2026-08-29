@@ -24,6 +24,7 @@
 use Brain\Monkey\Functions;
 
 require_once __DIR__ . '/AbstractGuardLMSTestCase.php';
+require_once GUARDLMS_PLUGIN_DIR . 'includes/admin/class-guardlms-admin-notice.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-options.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-credentials.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-http.php';
@@ -40,7 +41,33 @@ require_once GUARDLMS_PLUGIN_DIR . 'includes/admin/class-guardlms-settings.php';
  */
 final class SettingsAssetsTest extends AbstractGuardLMSTestCase {
 
-	public function test_admin_stylesheet_is_enqueued_on_the_plugin_screen(): void {
+	/**
+	 * Hook suffix the add_options_page() stub hands back.
+	 *
+	 * Deliberately NOT the stock "settings_page_guardlms": the plugin must use
+	 * whatever WordPress returned (a menu-editor plugin or a future move to a
+	 * top-level menu changes it), not re-derive it from the slug.
+	 */
+	private const HOOK_SUFFIX = 'toplevel_page_guardlms';
+
+	/**
+	 * Run GuardLMS_Settings::register() once with the Settings API stubbed.
+	 *
+	 * register() is idempotent per process, so the first call in this file
+	 * decides the hook suffix every later test sees.
+	 */
+	private function registerPage(): void {
+		Functions\when( 'add_options_page' )->justReturn( self::HOOK_SUFFIX );
+		Functions\when( 'register_setting' )->justReturn( null );
+		Functions\when( 'add_settings_section' )->justReturn( null );
+		Functions\when( 'add_settings_field' )->justReturn( null );
+
+		GuardLMS_Settings::register();
+	}
+
+	public function test_admin_stylesheet_is_enqueued_on_the_screen_wordpress_registered(): void {
+		$this->registerPage();
+
 		Functions\expect( 'wp_enqueue_style' )
 			->once()
 			->with(
@@ -50,12 +77,15 @@ final class SettingsAssetsTest extends AbstractGuardLMSTestCase {
 				GUARDLMS_VERSION
 			);
 
-		GuardLMS_Settings::enqueue_assets( 'settings_page_guardlms' );
+		GuardLMS_Settings::enqueue_assets( self::HOOK_SUFFIX );
 	}
 
 	public function test_admin_stylesheet_is_not_enqueued_on_other_screens(): void {
+		$this->registerPage();
+
 		Functions\expect( 'wp_enqueue_style' )->never();
 
+		GuardLMS_Settings::enqueue_assets( 'settings_page_guardlms' );
 		GuardLMS_Settings::enqueue_assets( 'index.php' );
 		GuardLMS_Settings::enqueue_assets( 'plugins.php' );
 		GuardLMS_Settings::enqueue_assets( '' );

@@ -47,6 +47,7 @@ class GuardLMS_Plugin {
 		require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-sdk-injector.php';
 		require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-connect-manager.php';
 		require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-rest.php';
+		require_once GUARDLMS_PLUGIN_DIR . 'includes/admin/class-guardlms-admin-notice.php';
 		require_once GUARDLMS_PLUGIN_DIR . 'includes/admin/class-guardlms-settings.php';
 		require_once GUARDLMS_PLUGIN_DIR . 'includes/admin/class-guardlms-connect-page.php';
 		require_once GUARDLMS_PLUGIN_DIR . 'includes/admin/class-guardlms-realtime-page.php';

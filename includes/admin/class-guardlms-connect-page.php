@@ -274,15 +274,7 @@ class GuardLMS_Connect_Page {
 			MINUTE_IN_SECONDS
 		);
 
-		wp_safe_redirect(
-			add_query_arg(
-				array(
-					'page'             => self::PAGE,
-					'guardlms_connect' => 'disconnected',
-				),
-				admin_url( 'options-general.php' )
-			)
-		);
+		wp_safe_redirect( GuardLMS_Settings::url( array( 'guardlms_connect' => 'disconnected' ) ) );
 		exit;
 	}
 
@@ -317,13 +309,9 @@ class GuardLMS_Connect_Page {
 		}
 		delete_transient( self::NOTICE_TRANSIENT );
 
-		$class   = ( isset( $notice['type'] ) && 'error' === $notice['type'] ) ? 'notice-error' : 'notice-success';
+		$type    = ( isset( $notice['type'] ) && 'error' === $notice['type'] ) ? 'error' : 'success';
 		$message = isset( $notice['message'] ) ? (string) $notice['message'] : '';
 
-		printf(
-			'<div class="notice %1$s is-dismissible"><p>%2$s</p></div>',
-			esc_attr( $class ),
-			esc_html( $message )
-		);
+		GuardLMS_Admin_Notice::render( $type, $message, array( 'dismissible' => true ) );
 	}
 }

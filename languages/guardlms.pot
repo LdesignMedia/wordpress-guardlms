@@ -279,7 +279,7 @@ msgid "Site information pushed to GuardLMS successfully."
 msgstr ""
 
 #: includes/admin/class-guardlms-settings.php:494
-msgid "GuardLMS detected that this site URL changed and has disconnected the stored API key. Re-enter your key to reconnect."
+msgid "GuardLMS detected that this site URL changed and has disconnected the site. Connect it again from the GuardLMS settings."
 msgstr ""
 
 #. translators: %s: key expiry date.

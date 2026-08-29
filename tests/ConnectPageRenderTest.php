@@ -25,6 +25,7 @@
 use Brain\Monkey\Functions;
 
 require_once __DIR__ . '/AbstractGuardLMSTestCase.php';
+require_once GUARDLMS_PLUGIN_DIR . 'includes/admin/class-guardlms-admin-notice.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-options.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-credentials.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-http.php';
@@ -32,6 +33,7 @@ require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-sdk-config.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-sdk-client.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-api-client.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/class-guardlms-connect-manager.php';
+require_once GUARDLMS_PLUGIN_DIR . 'includes/admin/class-guardlms-settings.php';
 require_once GUARDLMS_PLUGIN_DIR . 'includes/admin/class-guardlms-connect-page.php';
 
 /**
