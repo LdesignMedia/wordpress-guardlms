@@ -65,7 +65,7 @@ final class SettingsAssetsTest extends AbstractGuardLMSTestCase {
 		GuardLMS_Settings::register();
 	}
 
-	public function test_admin_stylesheet_is_enqueued_on_the_screen_wordpress_registered(): void {
+	public function test_admin_assets_are_enqueued_on_the_screen_wordpress_registered(): void {
 		$this->registerPage();
 
 		Functions\expect( 'wp_enqueue_style' )
@@ -76,19 +76,44 @@ final class SettingsAssetsTest extends AbstractGuardLMSTestCase {
 				array(),
 				GUARDLMS_VERSION
 			);
+		Functions\expect( 'wp_enqueue_script' )
+			->once()
+			->with(
+				'guardlms-admin',
+				GUARDLMS_PLUGIN_URL . 'assets/admin.js',
+				array(),
+				GUARDLMS_VERSION,
+				true
+			);
 
 		GuardLMS_Settings::enqueue_assets( self::HOOK_SUFFIX );
 	}
 
-	public function test_admin_stylesheet_is_not_enqueued_on_other_screens(): void {
+	public function test_admin_assets_are_not_enqueued_on_other_screens(): void {
 		$this->registerPage();
 
 		Functions\expect( 'wp_enqueue_style' )->never();
+		Functions\expect( 'wp_enqueue_script' )->never();
 
 		GuardLMS_Settings::enqueue_assets( 'settings_page_guardlms' );
 		GuardLMS_Settings::enqueue_assets( 'index.php' );
 		GuardLMS_Settings::enqueue_assets( 'plugins.php' );
 		GuardLMS_Settings::enqueue_assets( '' );
+	}
+
+	/**
+	 * The admin script owns the rotate confirmation, driven by a data attribute
+	 * on the form rather than an inline onsubmit handler.
+	 */
+	public function test_admin_script_wires_the_confirm_data_attribute(): void {
+		$js_file = GUARDLMS_PLUGIN_DIR . 'assets/admin.js';
+
+		$this->assertFileExists( $js_file );
+
+		$js = (string) file_get_contents( $js_file );
+
+		$this->assertStringContainsString( 'data-guardlms-confirm', $js );
+		$this->assertStringContainsString( 'preventDefault', $js );
 	}
 
 	/**

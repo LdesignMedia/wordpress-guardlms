@@ -159,8 +159,9 @@ entirely.
 == Changelog ==
 
 = 0.2.2 =
-* Settings screen styling is now a stylesheet enqueued on the plugin screen only,
-  instead of inline styles.
+* Settings screen styling and the "Replace SDK key" confirmation are now a
+  stylesheet and script enqueued on the plugin screen only, instead of inline
+  styles and an inline event handler.
 * Admin notices about a changed site URL or an expiring key are shown only to
   administrators, are dismissible, and link straight to the Reconnect button.
 

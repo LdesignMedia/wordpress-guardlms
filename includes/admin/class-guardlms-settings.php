@@ -168,10 +168,11 @@ class GuardLMS_Settings {
 	}
 
 	/**
-	 * Enqueue the plugin screen stylesheet: brand header, status badge, buttons.
+	 * Enqueue the plugin screen assets: stylesheet (brand header, status
+	 * badge, buttons) and the script behind the confirm-before-submit forms.
 	 *
 	 * Hooked to `admin_enqueue_scripts`. Loads on the GuardLMS settings screen
-	 * only, so no other admin page carries the extra request. The stylesheet
+	 * only, so no other admin page carries the extra requests. The stylesheet
 	 * deliberately mirrors styles.css in the Moodle plugin so both connectors
 	 * look the same.
 	 *
@@ -188,6 +189,13 @@ class GuardLMS_Settings {
 			GUARDLMS_PLUGIN_URL . 'assets/admin.css',
 			array(),
 			GUARDLMS_VERSION
+		);
+		wp_enqueue_script(
+			'guardlms-admin',
+			GUARDLMS_PLUGIN_URL . 'assets/admin.js',
+			array(),
+			GUARDLMS_VERSION,
+			true
 		);
 	}
 

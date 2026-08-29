@@ -365,8 +365,9 @@ class GuardLMS_Realtime_Page {
 			<?php endif; ?>
 
 			<?php if ( '' !== $sdk_key ) : ?>
+				<?php // The confirmation prompt is read by assets/admin.js; no inline handler. ?>
 				<form action="<?php echo esc_url( $action_url ); ?>" method="post"
-					onsubmit="return confirm(<?php echo esc_attr( wp_json_encode( __( 'This replaces the key this site currently serves. Pages cached before the change keep sending the old key until the cache clears. Continue?', 'guardlms' ) ) ); ?>);">
+					data-guardlms-confirm="<?php esc_attr_e( 'This replaces the key this site currently serves. Pages cached before the change keep sending the old key until the cache clears. Continue?', 'guardlms' ); ?>">
 					<input type="hidden" name="action" value="<?php echo esc_attr( self::ROTATE_ACTION ); ?>">
 					<?php
 					wp_nonce_field( self::ROTATE_ACTION );
