@@ -1,10 +1,10 @@
 === GuardLMS ===
-Contributors: ldesignmedia
+Contributors: ldesignmedia, luukverhoeven
 Tags: security, cve, monitoring, vulnerability
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.2.1
+Stable tag: 0.2.2
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -157,6 +157,12 @@ outgoing payload data. You may alternatively define `GUARDLMS_PUSH_KEY` as a con
 entirely.
 
 == Changelog ==
+
+= 0.2.2 =
+* Settings screen styling is now a stylesheet enqueued on the plugin screen only,
+  instead of inline styles.
+* Admin notices about a changed site URL or an expiring key are shown only to
+  administrators, are dismissible, and link straight to the Reconnect button.
 
 = 0.2.1 =
 * Fixed the default GuardLMS endpoint: the plugin now talks to

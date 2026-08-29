@@ -157,7 +157,7 @@ class GuardLMS_Connect_Page {
 		$lastpush  = (int) GuardLMS_Options::get( 'lastpush' );
 		$format    = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
 		?>
-		<table class="widefat striped" style="max-width:640px;margin-top:1em">
+		<table class="widefat striped guardlms-details">
 			<tbody>
 				<tr>
 					<th scope="row"><?php esc_html_e( 'Connected at', 'guardlms' ); ?></th>
@@ -202,8 +202,8 @@ class GuardLMS_Connect_Page {
 	public static function render_buttons(): void {
 		$connected = GuardLMS_Connect_Manager::is_connected();
 		?>
-			<div style="margin-top:1em">
-				<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post" style="display:inline-block">
+			<div class="guardlms-actions">
+				<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post">
 					<input type="hidden" name="action" value="<?php echo esc_attr( self::START_ACTION ); ?>">
 					<?php
 					wp_nonce_field( self::START_ACTION );
@@ -217,7 +217,7 @@ class GuardLMS_Connect_Page {
 				</form>
 
 				<?php if ( $connected ) : ?>
-					<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post" style="display:inline-block;margin-left:8px">
+					<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post">
 						<input type="hidden" name="action" value="<?php echo esc_attr( self::DISCONNECT_ACTION ); ?>">
 						<?php
 						wp_nonce_field( self::DISCONNECT_ACTION );

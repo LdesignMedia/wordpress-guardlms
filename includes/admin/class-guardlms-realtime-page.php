@@ -340,8 +340,8 @@ class GuardLMS_Realtime_Page {
 	private static function render_buttons( string $sdk_key, bool $injecting ): void {
 		$action_url = admin_url( 'admin-post.php' );
 		?>
-		<div style="margin-top:1em">
-			<form action="<?php echo esc_url( $action_url ); ?>" method="post" style="display:inline-block">
+		<div class="guardlms-actions">
+			<form action="<?php echo esc_url( $action_url ); ?>" method="post">
 				<input type="hidden" name="action" value="<?php echo esc_attr( self::REFRESH_ACTION ); ?>">
 				<?php
 				wp_nonce_field( self::REFRESH_ACTION );
@@ -351,7 +351,7 @@ class GuardLMS_Realtime_Page {
 
 			<?php if ( $injecting ) : ?>
 				<?php // Offered only while the SDK is genuinely on the page: the probe's only failure message blames another plugin, which is a fabricated accusation whenever the plugin itself chose not to inject. ?>
-				<form action="<?php echo esc_url( $action_url ); ?>" method="post" style="display:inline-block;margin-left:8px">
+				<form action="<?php echo esc_url( $action_url ); ?>" method="post">
 					<input type="hidden" name="action" value="<?php echo esc_attr( self::SELFTEST_ACTION ); ?>">
 					<?php
 					wp_nonce_field( self::SELFTEST_ACTION );
@@ -361,7 +361,7 @@ class GuardLMS_Realtime_Page {
 			<?php endif; ?>
 
 			<?php if ( '' !== $sdk_key ) : ?>
-				<form action="<?php echo esc_url( $action_url ); ?>" method="post" style="display:inline-block;margin-left:8px"
+				<form action="<?php echo esc_url( $action_url ); ?>" method="post"
 					onsubmit="return confirm(<?php echo esc_attr( wp_json_encode( __( 'This replaces the key this site currently serves. Pages cached before the change keep sending the old key until the cache clears. Continue?', 'guardlms' ) ) ); ?>);">
 					<input type="hidden" name="action" value="<?php echo esc_attr( self::ROTATE_ACTION ); ?>">
 					<?php

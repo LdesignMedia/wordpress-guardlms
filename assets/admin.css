@@ -1,0 +1,61 @@
+/*
+ * GuardLMS settings screen: brand header and the connection status badge.
+ *
+ * Deliberately mirrors styles.css in the Moodle plugin so both connectors look
+ * the same. Enqueued only on the plugin's own screen, see
+ * GuardLMS_Settings::enqueue_assets().
+ */
+
+.guardlms-title {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.guardlms-logo {
+	height: 32px;
+	width: auto;
+}
+
+.guardlms-status {
+	margin: 1em 0 0.5em;
+}
+
+.guardlms-badge {
+	display: inline-block;
+	padding: 2px 10px;
+	border-radius: 10px;
+	font-weight: 600;
+}
+
+.guardlms-badge-connected {
+	background: #d7f5df;
+	color: #0a6b31;
+}
+
+.guardlms-badge-disconnected {
+	background: #fcdada;
+	color: #a02020;
+}
+
+.guardlms-badge-rejected {
+	background: #fcf0d3;
+	color: #8a5300;
+}
+
+.guardlms-actions {
+	margin-top: 1em;
+}
+
+.guardlms-actions form {
+	display: inline-block;
+}
+
+.guardlms-actions form + form {
+	margin-left: 8px;
+}
+
+.guardlms-details {
+	max-width: 640px;
+	margin-top: 1em;
+}
