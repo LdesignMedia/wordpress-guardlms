@@ -1,0 +1,32 @@
+name: Update WordPress.org assets and readme
+
+# Pushes changes to readme.txt and the .wordpress-org directory (icon,
+# banner, screenshots) to WordPress.org without cutting a release:
+#   - assets go to the top-level SVN assets/ directory;
+#   - readme.txt goes to trunk and to the tags/<Stable tag> directory.
+# The action refuses to commit when anything other than readme.txt or
+# .wordpress-org differs from what is already in SVN, so code changes
+# on main can only go live through deploy.yml (a version tag).
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "readme.txt"
+      - ".wordpress-org/**"
+  workflow_dispatch:
+
+jobs:
+  assets:
+    name: Push assets and readme to SVN
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update WordPress.org assets and readme
+        uses: 10up/action-wordpress-plugin-asset-update@stable
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+          SLUG: guardlms
