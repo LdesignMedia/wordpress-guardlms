@@ -10,6 +10,10 @@ This plugin is a WordPress port of the observable behaviour of
 re-implemented with WordPress-native primitives (Options API, WP-Cron, HTTP API,
 Settings API, REST API).
 
+## Plugin on the official WordPress site
+
+https://wordpress.org/plugins/guardlms
+
 ## What it does
 
 A daily scheduled task builds a payload and sends it to the configured GuardLMS
