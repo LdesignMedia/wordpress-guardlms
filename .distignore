@@ -6,6 +6,8 @@
 .omc
 .claude
 .github
+# WordPress.org directory assets (icon, banner, screenshots); deployed to SVN assets/, never part of the plugin
+.wordpress-org
 .phpunit.result.cache
 .wp-env.json
 # Generated PHPUnit fixture (see .gitignore): stand-in wp-admin/includes/plugin.php
