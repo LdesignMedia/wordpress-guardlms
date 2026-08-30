@@ -37,6 +37,11 @@ surfaced in your GuardLMS dashboard so you can patch or remove it before it is e
 Setup is one click: "Connect to GuardLMS" sends you to GuardLMS to confirm, then installs the
 push key and verifies ownership automatically. No API key to copy.
 
+**Source code and issues**
+
+Development happens in the open on GitHub. Report bugs, suggest improvements or send a pull
+request at https://github.com/LdesignMedia/wordpress-guardlms.
+
 = Third Party Services =
 
 This plugin relies on a third-party service, **GuardLMS** (https://dashboard.guardlms.com), to
@@ -144,6 +149,11 @@ GuardLMS ties a push key to the site URL it was issued for. If the plugin detect
 site's URL has changed since the key was saved (for example after cloning to a staging
 environment), it automatically clears the stored key so the clone cannot push data as if it
 were the original site. Click "Connect to GuardLMS" again to reconnect the new URL.
+
+= Where can I report a bug or contribute? =
+
+The plugin is developed on GitHub: https://github.com/LdesignMedia/wordpress-guardlms. Open an
+issue for bugs and feature requests, or send a pull request.
 
 = How often is data sent? =
 
