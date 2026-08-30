@@ -14,7 +14,7 @@ Reports your WordPress core, plugin and theme inventory to GuardLMS daily so kno
 
 GuardLMS keeps your WordPress installation under continuous vulnerability monitoring. Once
 configured, the plugin sends a daily snapshot of your site's software inventory to the GuardLMS
-service (https://dashboard.guardlms.com), where it is matched against a database of known CVEs
+service ([dashboard.guardlms.com](https://dashboard.guardlms.com)), where it is matched against a database of known CVEs
 affecting WordPress core, plugins, and themes. If a vulnerable component is detected, it is
 surfaced in your GuardLMS dashboard so you can patch or remove it before it is exploited.
 
@@ -39,12 +39,12 @@ push key and verifies ownership automatically. No API key to copy.
 
 **Source code and issues**
 
-Development happens in the open on GitHub. Report bugs, suggest improvements or send a pull
-request at https://github.com/LdesignMedia/wordpress-guardlms.
+Development happens in the open on [GitHub](https://github.com/LdesignMedia/wordpress-guardlms).
+Report bugs, suggest improvements or send a pull request there.
 
 = Third Party Services =
 
-This plugin relies on a third-party service, **GuardLMS** (https://dashboard.guardlms.com), to
+This plugin relies on a third-party service, **GuardLMS** ([dashboard.guardlms.com](https://dashboard.guardlms.com)), to
 perform CVE and vulnerability monitoring for your site. This section discloses exactly what is
 shared with that service, in line with the WordPress.org plugin guidelines.
 
@@ -88,8 +88,8 @@ is a separate opt-in and nothing is loaded or sent while it is switched off.
 By installing and configuring this plugin, you agree to GuardLMS's own Terms of Service and
 Privacy Policy, which govern how GuardLMS itself handles the data described above:
 
-* Terms of Service: https://guardlms.com/terms
-* Privacy Policy: https://guardlms.com/privacy
+* [Terms of Service](https://guardlms.com/terms)
+* [Privacy Policy](https://guardlms.com/privacy)
 
 If you do not wish to use this third-party service, do not enter a GuardLMS API key, or
 deactivate/uninstall the plugin — no data is sent to GuardLMS while the plugin is disabled or
@@ -135,8 +135,9 @@ deferring or blocking the script.
 
 = Do I need a GuardLMS account? =
 
-Yes. You need a GuardLMS account. A free account is enough. Register at
-https://dashboard.guardlms.com, or create one during the connect flow.
+Yes. You need a GuardLMS account. A free account is enough.
+[Register at dashboard.guardlms.com](https://dashboard.guardlms.com), or create one during the
+connect flow.
 
 = What happens if I don't connect the site? =
 
@@ -152,8 +153,8 @@ were the original site. Click "Connect to GuardLMS" again to reconnect the new U
 
 = Where can I report a bug or contribute? =
 
-The plugin is developed on GitHub: https://github.com/LdesignMedia/wordpress-guardlms. Open an
-issue for bugs and feature requests, or send a pull request.
+The plugin is developed on [GitHub](https://github.com/LdesignMedia/wordpress-guardlms). Open an
+issue there for bugs and feature requests, or send a pull request.
 
 = How often is data sent? =
 
