@@ -69,7 +69,7 @@ jobs:
           SLUG: guardlms
 
       - name: Attach the zip to a GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: ${{ steps.deploy.outputs.zip-path }}
           generate_release_notes: true
